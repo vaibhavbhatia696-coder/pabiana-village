@@ -1,39 +1,53 @@
 
 from flask import (
-    Flask, render_template_string, request,
-    redirect, url_for, session, flash,
-    send_from_directory, abort
+    Flask, render_template_string, request, redirect,
+    url_for, session, flash, abort, send_from_directory,
+    Response
 )
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
 from pathlib import Path
 from functools import wraps
 from datetime import datetime
-from jinja2 import DictLoader
+from PIL import Image, UnidentifiedImageError
+from xml.sax.saxutils import escape
 import sqlite3
 import secrets
-import os
 import uuid
+import os
 import io
 
-# ============================================================
-# PABIANA VILLAGE — PREMIUM GREEN & BLUE EDITION
-# Complete single-file Flask website
-# ============================================================
+# ==========================================================
+# PABIANA VILLAGE — PREMIUM GREEN BLUE WEBSITE
+# Complete single-file Flask application
+# ==========================================================
 
-BASE_DIR = Path(__file__).resolve().parent
-STATIC_DIR = BASE_DIR / "static"
-IMAGE_DIR = STATIC_DIR / "images"
-DATA_DIR = BASE_DIR / "pabiana_data"
-UPLOAD_DIR = DATA_DIR / "uploads"
-DB_PATH = DATA_DIR / "website.db"
+BASE = Path(__file__).resolve().parent
+STATIC = BASE / "static"
+IMAGES = STATIC / "images"
+DATA = BASE / "pabiana_data"
+UPLOADS = DATA / "uploads"
+DB = DATA / "website.db"
 
-for folder in (STATIC_DIR, IMAGE_DIR, DATA_DIR, UPLOAD_DIR):
-    folder.mkdir(parents=True, exist_ok=True)
+# IMPORTANT RENDER FIX:
+# Never attempt to create static/images here.
+# If GitHub accidentally contains a file called "images",
+# the app can still start and report missing pictures.
+if STATIC.exists() and not STATIC.is_dir():
+    raise RuntimeError(
+        "The path 'static' must be a folder, not a file."
+    )
 
-app = Flask(__name__, static_folder=str(STATIC_DIR))
+STATIC.mkdir(parents=True, exist_ok=True)
+DATA.mkdir(parents=True, exist_ok=True)
+UPLOADS.mkdir(parents=True, exist_ok=True)
 
-app.secret_key = os.environ.get("SECRET_KEY") or secrets.token_hex(32)
+app = Flask(__name__, static_folder=str(STATIC))
+
+app.secret_key = (
+    os.environ.get("SECRET_KEY")
+    or secrets.token_hex(32)
+)
 
 app.config.update(
     MAX_CONTENT_LENGTH=12 * 1024 * 1024,
@@ -42,193 +56,188 @@ app.config.update(
     SESSION_COOKIE_SECURE=os.environ.get("COOKIE_SECURE") == "1"
 )
 
-ALLOWED_IMAGES = {".png", ".jpg", ".jpeg", ".webp"}
+EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".gif"}
+UPLOAD_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp"}
 
-# ============================================================
-# VILLAGE INFORMATION
-# ============================================================
+# ==========================================================
+# VILLAGE CONTENT
+# ==========================================================
 
 SECTIONS = [
     {
         "id": "mountain",
-        "image": "mountain.png",
-        "tag": "01 / MOUNTAIN LANDSCAPES",
+        "file": "mountain.png",
+        "tag": "01 / THE HIMALAYAN HORIZON",
         "name": "Krol Tibba, Solan & Kali Tibba, Chail",
         "name_hi": "क्रोल टिब्बा सोलन और काली टिब्बा चायल",
         "title": "Where the mountains whisper.",
         "title_hi": "जहाँ पहाड़ अपनी कहानी कहते हैं।",
-        "description": (
-            "The mountain landscapes of Himachal Pradesh are "
-            "known for their natural beauty and peaceful atmosphere. "
-            "Krol Tibba is a prominent mountain landmark near Solan, "
+        "text": (
+            "Where the sky embraces the mountains, every view "
+            "feels like a postcard from home. Krol Tibba is a "
+            "prominent mountain landmark associated with Solan, "
             "while Kali Tibba in Chail is known for its hilltop "
-            "Kali Mata temple and beautiful panoramic views. "
-            "Both places reflect the natural and cultural charm "
-            "of the region."
+            "temple and panoramic Himalayan views. These landmarks "
+            "reflect the scenic beauty of the surrounding region."
         ),
-        "description_hi": (
-            "हिमाचल प्रदेश के पहाड़ अपनी प्राकृतिक सुंदरता और "
-            "शांत वातावरण के लिए प्रसिद्ध हैं। सोलन के पास "
-            "स्थित क्रोल टिब्बा एक प्रमुख पहाड़ी स्थल है। "
-            "चायल का काली टिब्बा अपने काली माता मंदिर और "
-            "सुंदर पहाड़ी नज़ारों के लिए जाना जाता है। "
-            "ये दोनों स्थान क्षेत्र की प्राकृतिक और "
-            "सांस्कृतिक सुंदरता को दर्शाते हैं।"
+        "text_hi": (
+            "जहाँ आसमान पहाड़ों से मिलता है, वहाँ हर नज़ारा "
+            "अपने घर की खूबसूरती का एहसास कराता है। "
+            "क्रोल टिब्बा सोलन क्षेत्र का एक प्रमुख पहाड़ी "
+            "स्थल है, जबकि चायल का काली टिब्बा अपने "
+            "पहाड़ी मंदिर और मनोरम दृश्यों के लिए प्रसिद्ध है।"
         ),
         "caption": "Closer to the clouds, closer to nature."
     },
     {
         "id": "temple",
-        "image": "temple.png",
+        "file": "temple.png",
         "tag": "02 / FAITH & HERITAGE",
         "name": "Temples of Pabiana",
         "name_hi": "पबियाना के मंदिर",
         "title": "Faith rooted in the hills.",
         "title_hi": "पहाड़ों में बसी आस्था।",
-        "description": (
+        "text": (
             "The temples of Pabiana and the surrounding region "
-            "reflect local faith, culture and traditions. "
-            "They form an important part of the village's "
-            "heritage and community life."
+            "reflect our faith, customs and cultural traditions. "
+            "They are an important part of our village heritage."
         ),
-        "description_hi": (
-            "पबियाना और आसपास के मंदिर स्थानीय आस्था, "
+        "text_hi": (
+            "पबियाना और आसपास के मंदिर हमारी आस्था, "
             "संस्कृति और परंपराओं की पहचान हैं। "
-            "ये गाँव की विरासत और सामुदायिक जीवन "
-            "का महत्वपूर्ण हिस्सा हैं।"
+            "ये हमारे गाँव की विरासत का महत्वपूर्ण हिस्सा हैं।"
         ),
         "caption": "A peaceful corner of our heritage."
     },
     {
         "id": "senior",
-        "image": "school.png",
+        "file": "school.png",
         "tag": "03 / EDUCATION & TOMORROW",
         "name": "Senior Secondary School Pabiana",
         "name_hi": "वरिष्ठ माध्यमिक विद्यालय पबियाना",
         "title": "Dreams grow here.",
         "title_hi": "यहाँ सपनों को नई उड़ान मिलती है।",
-        "description": (
-            "Senior Secondary School Pabiana represents "
-            "education, opportunity and the ambitions of "
-            "future generations. It is an important part "
-            "of the educational identity of our village."
+        "text": (
+            "Senior Secondary School Pabiana is an important "
+            "part of the village's educational identity, "
+            "nurturing learning, confidence and ambitions "
+            "for the future."
         ),
-        "description_hi": (
-            "वरिष्ठ माध्यमिक विद्यालय पबियाना शिक्षा, "
-            "अवसर और आने वाली पीढ़ियों के सपनों "
-            "का प्रतीक है। यह हमारे गाँव की "
-            "शैक्षिक पहचान का महत्वपूर्ण हिस्सा है।"
+        "text_hi": (
+            "वरिष्ठ माध्यमिक विद्यालय पबियाना हमारे गाँव की "
+            "शैक्षिक पहचान का महत्वपूर्ण हिस्सा है, जहाँ "
+            "शिक्षा के साथ आत्मविश्वास और भविष्य के सपने "
+            "आकार लेते हैं।"
         ),
         "caption": "A place of learning, hope and possibility."
     },
     {
         "id": "primary",
-        "image": "primary.png",
+        "file": "primary.png",
         "tag": "04 / THE FIRST STEP",
         "name": "Primary School Pabiana",
         "name_hi": "प्राथमिक विद्यालय पबियाना",
         "title": "Little steps. Bright futures.",
         "title_hi": "छोटे कदम, उज्ज्वल भविष्य।",
-        "description": (
+        "text": (
             "Every great journey begins with a small step. "
-            "Primary School Pabiana represents the beginning "
-            "of learning, friendship and discovery for "
-            "the young children of our village."
+            "Primary School Pabiana is where young children "
+            "take their first steps into learning, friendship "
+            "and a brighter future."
         ),
-        "description_hi": (
+        "text_hi": (
             "हर बड़ी मंज़िल की शुरुआत छोटे कदम से होती है। "
-            "प्राथमिक विद्यालय पबियाना हमारे गाँव के "
-            "बच्चों की शिक्षा और उज्ज्वल भविष्य की "
-            "शुरुआत का प्रतीक है।"
+            "प्राथमिक विद्यालय पबियाना वह स्थान है जहाँ "
+            "बच्चे शिक्षा और उज्ज्वल भविष्य की ओर "
+            "अपना पहला कदम बढ़ाते हैं।"
         ),
         "caption": "Small beginnings, beautiful possibilities."
     },
     {
         "id": "panchayat",
-        "image": "panchayal.png",
+        "file": "panchayal.png",
         "tag": "05 / OUR COMMUNITY",
         "name": "Gram Panchayat Ser Jagas",
         "name_hi": "ग्राम पंचायत सेर जगास",
-        "title": "The heart of our community.",
-        "title_hi": "हमारे समुदाय की पहचान।",
-        "description": (
+        "title": "The heart of our village.",
+        "title_hi": "हमारे गाँव की पहचान।",
+        "text": (
             "Gram Panchayat Ser Jagas, Vikas Khand Rajgarh, "
             "is an important part of local administration "
-            "and community development in the region."
+            "and everyday community life in the region."
         ),
-        "description_hi": (
+        "text_hi": (
             "ग्राम पंचायत सेर जगास, विकास खंड राजगढ़, "
-            "क्षेत्र के स्थानीय प्रशासन और "
-            "सामुदायिक विकास का महत्वपूर्ण हिस्सा है।"
+            "स्थानीय प्रशासन और क्षेत्र के सामुदायिक "
+            "जीवन का महत्वपूर्ण हिस्सा है।"
         ),
         "caption": "Together, we make a community."
     },
     {
         "id": "resort",
-        "image": "resort.png",
+        "file": "resort.png",
         "tag": "06 / MOUNTAIN HOSPITALITY",
         "name": "Resorts & Mountain Stays",
         "name_hi": "रिज़ॉर्ट और पहाड़ी ठहराव",
         "title": "Stay close to nature.",
         "title_hi": "प्रकृति के और करीब ठहरिए।",
-        "description": (
-            "The beautiful mountain surroundings offer "
-            "peaceful scenery and a refreshing atmosphere. "
-            "The pictured resort and mountain stay "
-            "locations reflect the charm of the hills."
+        "text": (
+            "Surrounded by peaceful mountain scenery, "
+            "the resort and stay options pictured around "
+            "Pabiana offer a glimpse of the region's "
+            "natural charm and beautiful landscapes."
         ),
-        "description_hi": (
-            "इस क्षेत्र का शांत वातावरण और खूबसूरत "
-            "पहाड़ी नज़ारे प्रकृति के करीब रहने "
-            "का सुंदर अनुभव प्रदान करते हैं।"
+        "text_hi": (
+            "शांत पहाड़ी नज़ारों से घिरे पबियाना क्षेत्र "
+            "के रिज़ॉर्ट और ठहरने के स्थान यहाँ की "
+            "प्राकृतिक सुंदरता की झलक दिखाते हैं।"
         ),
         "caption": "Where mountains feel like home."
     },
     {
         "id": "road",
-        "image": "road.png",
+        "file": "road.png",
         "tag": "07 / THE ROAD THAT CONNECTS US",
-        "name": "Main Road to Solan",
-        "name_hi": "सोलन मुख्य मार्ग",
+        "name": "Main Road to Solan · Approx. 32 km",
+        "name_hi": "सोलन मुख्य मार्ग · लगभग 32 किलोमीटर",
         "title": "Every road tells a story.",
         "title_hi": "हर रास्ते की अपनी कहानी होती है।",
-        "description": (
+        "text": (
             "The scenic main road connects the Pabiana "
-            "area with Solan and nearby regions. "
-            "The route offers beautiful mountain views "
-            "and plays an important role in everyday "
-            "travel and connectivity."
+            "area with Solan and surrounding regions. "
+            "Solan is approximately 32 km away by this "
+            "route. The road plays an important role "
+            "in local travel and connectivity."
         ),
-        "description_hi": (
-            "यह खूबसूरत मुख्य सड़क पबियाना क्षेत्र "
-            "को सोलन और आसपास के इलाकों से जोड़ती है। "
-            "इस मार्ग पर सुंदर पहाड़ी नज़ारे देखने "
-            "को मिलते हैं।"
+        "text_hi": (
+            "यह खूबसूरत मुख्य सड़क पबियाना क्षेत्र को "
+            "सोलन और आसपास के इलाकों से जोड़ती है। "
+            "इस मार्ग से सोलन लगभग 32 किलोमीटर दूर है।"
         ),
         "caption": "Connecting places, people and memories."
     }
 ]
 
-# ============================================================
+# ==========================================================
 # DATABASE
-# ============================================================
+# ==========================================================
 
 def get_db():
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(DB)
     conn.row_factory = sqlite3.Row
     return conn
 
 
 def init_db():
-    with get_db() as db:
-        db.execute("""
+    with get_db() as conn:
+        conn.execute("""
             CREATE TABLE IF NOT EXISTS admins (
                 username TEXT PRIMARY KEY,
                 password_hash TEXT NOT NULL
             )
         """)
 
-        db.execute("""
+        conn.execute("""
             CREATE TABLE IF NOT EXISTS uploaded_photos (
                 id TEXT PRIMARY KEY,
                 filename TEXT NOT NULL,
@@ -239,40 +248,65 @@ def init_db():
             )
         """)
 
-        username = os.environ.get("ADMIN_USERNAME", "admin")
-        password = os.environ.get("ADMIN_PASSWORD", "")
-
-        existing = db.execute(
+        count = conn.execute(
             "SELECT COUNT(*) FROM admins"
         ).fetchone()[0]
 
-        if existing == 0 and len(password) >= 12:
-            db.execute(
-                "INSERT INTO admins VALUES (?, ?)",
-                (username, generate_password_hash(password))
+        username = os.environ.get("ADMIN_USERNAME", "admin")
+        password = os.environ.get("ADMIN_PASSWORD", "")
+
+        if count == 0 and len(password) >= 12:
+            conn.execute(
+                "INSERT INTO admins (username, password_hash) "
+                "VALUES (?, ?)",
+                (
+                    username,
+                    generate_password_hash(password)
+                )
             )
 
 
 init_db()
 
-# ============================================================
-# IMAGE HELPERS
-# ============================================================
+# ==========================================================
+# PHOTO FINDER — RENDER SAFE
+# ==========================================================
 
 def find_photo(filename):
-    direct = IMAGE_DIR / filename
+    """
+    Supports:
+      static/images/photo.png
+      static/photo.png
+      other subfolders inside static
 
-    if direct.is_file():
-        return url_for(
-            "static",
-            filename=f"images/{filename}"
-        )
+    Never creates static/images.
+    """
 
-    for file in STATIC_DIR.rglob("*"):
-        if file.is_file() and file.name.lower() == filename.lower():
+    if IMAGES.is_dir():
+        candidate = IMAGES / filename
+
+        if candidate.is_file():
             return url_for(
                 "static",
-                filename=file.relative_to(STATIC_DIR).as_posix()
+                filename=f"images/{filename}"
+            )
+
+    candidate = STATIC / filename
+
+    if candidate.is_file():
+        return url_for(
+            "static",
+            filename=filename
+        )
+
+    for file in STATIC.rglob("*"):
+        if not file.is_file():
+            continue
+
+        if file.name.lower() == filename.lower():
+            return url_for(
+                "static",
+                filename=file.relative_to(STATIC).as_posix()
             )
 
     return None
@@ -283,7 +317,7 @@ def prepared_sections():
 
     for section in SECTIONS:
         item = section.copy()
-        item["url"] = find_photo(section["image"])
+        item["url"] = find_photo(section["file"])
         result.append(item)
 
     return result
@@ -293,19 +327,20 @@ def all_photos():
     photos = []
     seen = set()
 
-    for file in sorted(STATIC_DIR.rglob("*")):
+    for file in sorted(STATIC.rglob("*")):
         if not file.is_file():
             continue
 
-        if file.suffix.lower() not in ALLOWED_IMAGES:
+        if file.suffix.lower() not in EXTENSIONS:
             continue
 
         if file.name.lower() in {
-            "vaibhav.jpg", "vaibhav.png"
+            "vaibhav.jpg",
+            "vaibhav.png"
         }:
             continue
 
-        relative = file.relative_to(STATIC_DIR).as_posix()
+        relative = file.relative_to(STATIC).as_posix()
 
         if relative in seen:
             continue
@@ -318,13 +353,14 @@ def all_photos():
             "category": "Village Photography"
         })
 
-    with get_db() as db:
-        records = db.execute(
-            "SELECT * FROM uploaded_photos ORDER BY created_at DESC"
+    with get_db() as conn:
+        records = conn.execute(
+            "SELECT * FROM uploaded_photos "
+            "ORDER BY created_at DESC"
         ).fetchall()
 
     for photo in records:
-        if (UPLOAD_DIR / photo["filename"]).is_file():
+        if (UPLOADS / photo["filename"]).is_file():
             photos.append({
                 "url": url_for(
                     "uploaded_photo",
@@ -337,9 +373,9 @@ def all_photos():
     return photos
 
 
-# ============================================================
-# SECURITY HELPERS
-# ============================================================
+# ==========================================================
+# SECURITY
+# ==========================================================
 
 def csrf_token():
     if "csrf" not in session:
@@ -350,9 +386,11 @@ def csrf_token():
 
 def verify_csrf():
     expected = session.get("csrf", "")
-    supplied = request.form.get("csrf", "")
+    submitted = request.form.get("csrf", "")
 
-    if not expected or not secrets.compare_digest(expected, supplied):
+    if not expected or not secrets.compare_digest(
+        expected, submitted
+    ):
         abort(400)
 
 
@@ -369,24 +407,23 @@ def admin_required(func):
 
 app.jinja_env.globals["csrf_token"] = csrf_token
 
-# ============================================================
-# COMPLETE PREMIUM CSS
-# ============================================================
+# ==========================================================
+# PREMIUM GREEN BLUE CSS
+# ==========================================================
 
 CSS = r"""
 @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800;900&family=Cormorant+Garamond:wght@500;600;700&display=swap');
 
 :root {
-    --green: #128c73;
-    --green-dark: #075c50;
-    --blue: #1682c7;
-    --blue-dark: #14518d;
-    --purple: #7954c5;
-    --dark: #123e4d;
-    --gold: #e8c58e;
+    --green: #128b71;
+    --green-dark: #075b50;
+    --blue: #1681c5;
+    --blue-dark: #124d86;
+    --purple: #7855bf;
+    --dark: #123c4a;
     --text: #173b48;
-    --muted: #647d87;
-    --white: #ffffff;
+    --muted: #637b86;
+    --gold: #e8c38c;
     --serif: 'Cormorant Garamond', Georgia, serif;
     --sans: 'Poppins', sans-serif;
 }
@@ -402,8 +439,8 @@ html {
 body {
     margin: 0;
     font-family: var(--sans);
-    background: #fafffd;
     color: var(--text);
+    background: #fafffd;
     overflow-x: hidden;
 }
 
@@ -412,11 +449,11 @@ body.lock {
 }
 
 a {
-    text-decoration: none;
     color: inherit;
+    text-decoration: none;
 }
 
-button, input, select, textarea {
+button, input, textarea, select {
     font: inherit;
 }
 
@@ -434,7 +471,7 @@ img {
     margin: auto;
 }
 
-/* NAVIGATION */
+/* NAVBAR */
 
 .navbar {
     position: absolute;
@@ -449,7 +486,7 @@ img {
 
 .navbar.sticky {
     position: fixed;
-    background: rgba(7, 57, 68, .96);
+    background: rgba(7, 54, 67, .96);
     backdrop-filter: blur(18px);
     padding: 12px 0;
     box-shadow: 0 10px 30px #0002;
@@ -472,7 +509,7 @@ img {
     display: block;
     font-size: 8px;
     letter-spacing: 2px;
-    color: #b8f3df;
+    color: #b7f4de;
 }
 
 .nav-links {
@@ -484,7 +521,7 @@ img {
 }
 
 .nav-links a:hover {
-    color: #b5f5dc;
+    color: #b3f4dc;
 }
 
 .lang-btn {
@@ -531,8 +568,17 @@ img {
     position: absolute;
     inset: 0;
     background:
-        linear-gradient(90deg, #063d47df, #075b7090 60%, #064d6930),
-        linear-gradient(0deg, #083b4599, transparent 70%);
+        linear-gradient(
+            90deg,
+            #063d47df,
+            #075b7090 60%,
+            #064d6930
+        ),
+        linear-gradient(
+            0deg,
+            #083b4599,
+            transparent 70%
+        );
 }
 
 .hero-content {
@@ -593,7 +639,11 @@ img {
 }
 
 .btn-gold {
-    background: linear-gradient(110deg, #b7f2c8, #a9ddff);
+    background: linear-gradient(
+        110deg,
+        #b7f2c8,
+        #a9ddff
+    );
     color: #124354;
 }
 
@@ -604,7 +654,11 @@ img {
 }
 
 .btn-dark {
-    background: linear-gradient(110deg, #138b71, #177fca);
+    background: linear-gradient(
+        110deg,
+        #138b71,
+        #177fca
+    );
     color: white;
 }
 
@@ -625,7 +679,11 @@ img {
     min-height: 460px;
     height: 510px;
     border-radius: 220px 220px 25px 25px;
-    background: linear-gradient(135deg, #b9ecd3, #b2dff9);
+    background: linear-gradient(
+        135deg,
+        #b9ecd3,
+        #b2dff9
+    );
     overflow: hidden;
     box-shadow: 0 30px 65px #145c7030;
 }
@@ -662,7 +720,7 @@ img {
     color: var(--muted);
 }
 
-/* ZIGZAG SECTIONS */
+/* ZIGZAG PHOTO SECTIONS */
 
 .places {
     padding: 60px 0 40px;
@@ -693,7 +751,11 @@ img {
     position: relative;
     overflow: hidden;
     border-radius: 20px 130px 20px 20px;
-    background: linear-gradient(135deg, #d2f4e5, #b9e3f8);
+    background: linear-gradient(
+        135deg,
+        #d2f4e5,
+        #b9e3f8
+    );
     box-shadow: 0 25px 60px #145a7426;
 }
 
@@ -701,18 +763,13 @@ img {
     border-radius: 130px 20px 20px 20px;
 }
 
-/* COMPLETE IMAGE VISIBILITY */
+/* PHOTO FULL VISIBLE — NO CROP */
 
 .place-visual img {
     width: 100%;
     height: 100%;
     object-fit: contain !important;
     object-position: center !important;
-    transition: none;
-}
-
-.place-visual:hover img {
-    transform: none;
 }
 
 .place-badge {
@@ -744,7 +801,11 @@ img {
 .place-line {
     width: 100px;
     height: 3px;
-    background: linear-gradient(90deg, var(--green), var(--blue));
+    background: linear-gradient(
+        90deg,
+        var(--green),
+        var(--blue)
+    );
     margin: 27px 0;
 }
 
@@ -765,7 +826,11 @@ img {
     padding: 16px 20px;
     border-left: 4px solid var(--blue);
     border-radius: 0 12px 12px 0;
-    background: linear-gradient(90deg, #e4f8ed, #e5f3ff);
+    background: linear-gradient(
+        90deg,
+        #e4f8ed,
+        #e5f3ff
+    );
     color: #15768a;
     font-family: var(--serif);
     font-size: 24px;
@@ -788,7 +853,11 @@ img {
     padding: 110px 20px;
     text-align: center;
     color: white;
-    background: radial-gradient(circle at 80% 0%, #168f9a, #093e56 65%);
+    background: radial-gradient(
+        circle at 80% 0%,
+        #168f9a,
+        #093e56 65%
+    );
 }
 
 .quote h2 {
@@ -799,11 +868,15 @@ img {
     margin: 25px auto;
 }
 
-/* PHOTO GALLERY */
+/* GALLERY */
 
 .gallery-section {
     padding: 120px 0;
-    background: linear-gradient(135deg, #e9faef, #e8f5ff);
+    background: linear-gradient(
+        135deg,
+        #e9faef,
+        #e8f5ff
+    );
 }
 
 .gallery-heading {
@@ -829,7 +902,11 @@ img {
     padding: 0;
     border-radius: 15px;
     overflow: hidden;
-    background: linear-gradient(135deg, #b9ecd4, #b5dff6);
+    background: linear-gradient(
+        135deg,
+        #b9ecd4,
+        #b5dff6
+    );
     transition: box-shadow .3s ease;
 }
 
@@ -860,7 +937,7 @@ img {
     margin-top: 45px;
 }
 
-/* FULLSCREEN LIGHTBOX */
+/* FULLSCREEN PHOTO VIEWER */
 
 .lightbox {
     position: fixed;
@@ -919,7 +996,7 @@ img {
     font-size: 12px;
 }
 
-/* CLOSING & FOOTER */
+/* FOOTER */
 
 .closing {
     padding: 110px 0;
@@ -949,7 +1026,8 @@ img {
     font-size: 12px;
 }
 
-.footer p, .footer a {
+.footer p,
+.footer a {
     color: #c3e5e8;
     font-size: 13px;
     line-height: 2;
@@ -986,11 +1064,16 @@ img {
     border: 2px solid #a9f1d6;
 }
 
-/* ADMIN PANEL */
+/* ADMIN */
 
 .admin-body {
     min-height: 100vh;
-    background: linear-gradient(135deg, #075f52, #178c82, #1679bd);
+    background: linear-gradient(
+        135deg,
+        #075f52,
+        #178c82,
+        #1679bd
+    );
     padding: 70px 20px;
 }
 
@@ -1030,7 +1113,11 @@ img {
 .admin-box button {
     border: none;
     padding: 13px 22px;
-    background: linear-gradient(110deg, #168b70, #1679bd);
+    background: linear-gradient(
+        110deg,
+        #168b70,
+        #1679bd
+    );
     color: white;
     border-radius: 10px;
     font-weight: 700;
@@ -1064,7 +1151,7 @@ img {
     margin: 15px 0;
 }
 
-/* LEFT-RIGHT ANIMATIONS */
+/* LEFT RIGHT ANIMATIONS */
 
 .reveal {
     opacity: 0;
@@ -1096,9 +1183,9 @@ img {
     transform: translate3d(0, 0, 0);
 }
 
-/* RESPONSIVE DESIGN */
+/* RESPONSIVE */
 
-@media(max-width: 850px) {
+@media(max-width:850px) {
     .nav-links {
         display: none;
         position: absolute;
@@ -1177,7 +1264,7 @@ img {
     }
 }
 
-@media(max-width: 520px) {
+@media(max-width:520px) {
     .container {
         width: calc(100% - 30px);
     }
@@ -1227,7 +1314,7 @@ img {
     }
 }
 
-@media(prefers-reduced-motion: reduce) {
+@media(prefers-reduced-motion:reduce) {
     .reveal,
     .place .reveal {
         opacity: 1;
@@ -1237,9 +1324,9 @@ img {
 }
 """
 
-# ============================================================
-# BASE HTML
-# ============================================================
+# ==========================================================
+# HTML — BASE TEMPLATE
+# ==========================================================
 
 BASE_HTML = r"""
 <!DOCTYPE html>
@@ -1251,7 +1338,7 @@ BASE_HTML = r"""
 <title>{{ page_title }}</title>
 
 <meta name="description"
-content="Discover Pabiana Village in Sirmaur, Himachal Pradesh. Explore beautiful mountains, schools, temples, local culture and village photography.">
+content="Discover Pabiana Village in Sirmaur, Himachal Pradesh. Explore mountains, schools, temples, village culture and beautiful photography.">
 
 <meta name="robots" content="index, follow">
 <meta name="theme-color" content="#075f52">
@@ -1296,8 +1383,8 @@ EN / हिंदी
 <div>
 <h3>PABIANA</h3>
 <p>
-A digital celebration of our village, our mountains,
-our culture and our beautiful home.
+A digital celebration of our village,
+our mountains, our culture and our beautiful home.
 </p>
 </div>
 
@@ -1320,28 +1407,38 @@ Himachal Pradesh, India
 </div>
 
 <div class="footer-bottom">
-<span>© {{ year }} Pabiana Village. All rights reserved.</span>
+<span>
+© {{ year }} Pabiana Village. All rights reserved.
+</span>
 
 <div class="developer">
+
 {% if developer_photo %}
 <img src="{{ developer_photo }}" alt="Developer">
 {% endif %}
+
 <div>
 <small>DESIGNED & DEVELOPED BY</small>
 <strong>VAIBHAV BHATIA</strong>
 </div>
-</div>
 
 </div>
+</div>
+
 </div>
 </footer>
 
 <div class="lightbox" id="lightbox">
+
 <button class="lightbox-close" onclick="closeLightbox()">×</button>
 <button class="lightbox-prev" onclick="changePhoto(-1)">‹</button>
+
 <img id="lightboxImage" alt="Full photograph">
+
 <button class="lightbox-next" onclick="changePhoto(1)">›</button>
+
 <div class="lightbox-count" id="lightboxCount"></div>
+
 </div>
 
 <script>
@@ -1368,7 +1465,9 @@ function openLightbox(index) {
 
     currentPhoto = index;
 
-    document.getElementById("lightbox").classList.add("active");
+    document.getElementById("lightbox")
+        .classList.add("active");
+
     document.body.classList.add("lock");
 
     updateLightbox();
@@ -1385,15 +1484,17 @@ function updateLightbox() {
 function changePhoto(direction) {
     if (!photoSources.length) return;
 
-    currentPhoto =
-        (currentPhoto + direction + photoSources.length)
-        % photoSources.length;
+    currentPhoto = (
+        currentPhoto + direction + photoSources.length
+    ) % photoSources.length;
 
     updateLightbox();
 }
 
 function closeLightbox() {
-    document.getElementById("lightbox").classList.remove("active");
+    document.getElementById("lightbox")
+        .classList.remove("active");
+
     document.body.classList.remove("lock");
 }
 
@@ -1402,20 +1503,21 @@ document.addEventListener("keydown", event => {
         closeLightbox();
     }
 
-    const isOpen = document.getElementById("lightbox")
+    const open = document.getElementById("lightbox")
         .classList.contains("active");
 
-    if (isOpen && event.key === "ArrowRight") {
+    if (open && event.key === "ArrowRight") {
         changePhoto(1);
     }
 
-    if (isOpen && event.key === "ArrowLeft") {
+    if (open && event.key === "ArrowLeft") {
         changePhoto(-1);
     }
 });
 
 function toggleMenu() {
-    document.getElementById("navLinks").classList.toggle("open");
+    document.getElementById("navLinks")
+        .classList.toggle("open");
 }
 
 function toggleLanguage() {
@@ -1444,6 +1546,13 @@ window.addEventListener("scroll", () => {
 document.addEventListener("DOMContentLoaded", () => {
     setupGallery();
 
+    if (!("IntersectionObserver" in window)) {
+        document.querySelectorAll(".reveal").forEach(el => {
+            el.classList.add("visible");
+        });
+        return;
+    }
+
     const observer = new IntersectionObserver(entries => {
         entries.forEach(entry => {
             if (entry.isIntersecting) {
@@ -1455,8 +1564,8 @@ document.addEventListener("DOMContentLoaded", () => {
         threshold: .08
     });
 
-    document.querySelectorAll(".reveal").forEach(element => {
-        observer.observe(element);
+    document.querySelectorAll(".reveal").forEach(el => {
+        observer.observe(el);
     });
 });
 </script>
@@ -1465,9 +1574,9 @@ document.addEventListener("DOMContentLoaded", () => {
 </html>
 """
 
-# ============================================================
-# HOME PAGE
-# ============================================================
+# ==========================================================
+# HOME PAGE HTML
+# ==========================================================
 
 HOME_HTML = r"""
 {% extends "base.html" %}
@@ -1501,6 +1610,7 @@ tells a beautiful story.
 </p>
 
 <div class="actions">
+
 <a href="#explore" class="btn btn-gold">
 EXPLORE OUR VILLAGE ↗
 </a>
@@ -1508,8 +1618,8 @@ EXPLORE OUR VILLAGE ↗
 <a href="/gallery" class="btn btn-outline">
 VIEW PHOTOS ↗
 </a>
-</div>
 
+</div>
 </div>
 </section>
 
@@ -1517,15 +1627,18 @@ VIEW PHOTOS ↗
 <div class="container intro-grid">
 
 <div class="intro-image reveal">
+
 {% if intro %}
-<img src="{{ intro }}"
-alt="Beautiful mountain landscape">
+<img src="{{ intro }}" alt="Beautiful mountains">
 {% endif %}
+
 </div>
 
 <div class="reveal">
 
-<div class="label">WELCOME TO OUR WORLD</div>
+<div class="label">
+WELCOME TO OUR WORLD
+</div>
 
 <h2 class="title">
 A little village.<br>
@@ -1555,7 +1668,10 @@ DISCOVER MORE ↗
 <div class="container">
 
 <div class="places-heading reveal">
-<div class="label">EXPLORE OUR VILLAGE</div>
+
+<div class="label">
+EXPLORE OUR VILLAGE
+</div>
 
 <h2 class="title">
 Places that make<br>
@@ -1563,9 +1679,10 @@ Places that make<br>
 </h2>
 
 <p class="copy">
-A journey through mountains, education, faith,
-community and the roads that connect us.
+A journey through mountains, education,
+faith, community and scenic roads.
 </p>
+
 </div>
 
 {% for section in sections %}
@@ -1575,16 +1692,22 @@ community and the roads that connect us.
 <div class="place-visual reveal">
 
 {% if section.url %}
+
 <img src="{{ section.url }}"
 alt="{{ section.name }}"
 loading="lazy">
+
 {% else %}
+
 <div class="placeholder">
 {{ section.name }}
 </div>
+
 {% endif %}
 
-<div class="place-badge">{{ section.tag }}</div>
+<div class="place-badge">
+{{ section.tag }}
+</div>
 
 </div>
 
@@ -1609,9 +1732,9 @@ data-hi="{{ section.name_hi }}">
 </div>
 
 <p
-data-en="{{ section.description }}"
-data-hi="{{ section.description_hi }}">
-{{ section.description }}
+data-en="{{ section.text }}"
+data-hi="{{ section.text_hi }}">
+{{ section.text }}
 </p>
 
 <div class="caption-line">
@@ -1625,6 +1748,7 @@ EXPLORE PHOTOS ↗
 </a>
 
 </div>
+
 </article>
 
 {% endfor %}
@@ -1633,6 +1757,7 @@ EXPLORE PHOTOS ↗
 </section>
 
 <section class="quote">
+
 <div class="label" style="color:#b8f4dc">
 THE SPIRIT OF PABIANA
 </div>
@@ -1641,14 +1766,15 @@ THE SPIRIT OF PABIANA
 "Some places are not just locations.
 They are memories, emotions and home."
 </h2>
+
 </section>
 
 <section class="gallery-section">
 <div class="container">
 
 <div class="gallery-heading reveal">
-<div>
 
+<div>
 <div class="label">
 OUR ORIGINAL PHOTO COLLECTION
 </div>
@@ -1657,7 +1783,6 @@ OUR ORIGINAL PHOTO COLLECTION
 Every photograph<br>
 <em>tells a story.</em>
 </h2>
-
 </div>
 
 <p class="copy">
@@ -1684,7 +1809,9 @@ loading="lazy">
 </button>
 
 {% else %}
+
 <p>No photos uploaded yet.</p>
+
 {% endfor %}
 
 </div>
@@ -1724,9 +1851,9 @@ DISCOVER OUR GALLERY ↗
 {% endblock %}
 """
 
-# ============================================================
-# GALLERY PAGE
-# ============================================================
+# ==========================================================
+# FULL GALLERY PAGE
+# ==========================================================
 
 GALLERY_HTML = r"""
 {% extends "base.html" %}
@@ -1768,15 +1895,19 @@ loading="lazy">
 </button>
 
 {% else %}
+
 <p>Photos will appear here when uploaded.</p>
+
 {% endfor %}
 
 </div>
 
 <div style="text-align:center;margin-top:50px">
+
 <a href="/" class="btn btn-dark">
 ← BACK TO HOME
 </a>
+
 </div>
 
 </div>
@@ -1785,9 +1916,9 @@ loading="lazy">
 {% endblock %}
 """
 
-# ============================================================
+# ==========================================================
 # ADMIN PANEL HTML
-# ============================================================
+# ==========================================================
 
 ADMIN_HTML = r"""
 <!DOCTYPE html>
@@ -1848,10 +1979,13 @@ LOGIN ↗
 {% else %}
 
 <form method="post" action="/admin/logout">
+
 <input type="hidden"
 name="csrf"
 value="{{ csrf_token() }}">
+
 <button type="submit">LOGOUT</button>
+
 </form>
 
 <div class="admin-columns">
@@ -1889,9 +2023,11 @@ Category
 <select name="category">
 
 {% for section in sections %}
+
 <option value="{{ section.id }}">
 {{ section.name }}
 </option>
+
 {% endfor %}
 
 <option value="other">Other</option>
@@ -1904,9 +2040,11 @@ UPLOAD PHOTO ↗
 </button>
 
 </form>
+
 </div>
 
 <div>
+
 <h2>Photo Management</h2>
 
 <p class="copy">
@@ -1914,14 +2052,14 @@ Photos inside static/images appear automatically.
 </p>
 
 <p class="copy">
-Special image filenames:
-pabiana.png, mountain.png, school.png,
-primary.png, temple.png, panchayal.png,
+Required filenames:
+pabiana.png, mountain.png, temple.png,
+school.png, primary.png, panchayal.png,
 resort.png and road.png.
 </p>
 
 <p class="copy">
-All photos are displayed fully without cropping.
+Photos display fully without cropping.
 </p>
 
 </div>
@@ -1958,7 +2096,9 @@ DELETE
 </div>
 
 {% else %}
+
 <p>No additional photos uploaded yet.</p>
+
 {% endfor %}
 
 {% endif %}
@@ -1970,9 +2110,11 @@ DELETE
 </html>
 """
 
-# ============================================================
-# TEMPLATE CONFIGURATION
-# ============================================================
+# ==========================================================
+# PAGE RENDERER
+# ==========================================================
+
+from jinja2 import DictLoader
 
 app.jinja_loader = DictLoader({
     "base.html": BASE_HTML,
@@ -1993,27 +2135,23 @@ def render_page(template, **kwargs):
         **kwargs
     )
 
-# ============================================================
-# HOME
-# ============================================================
+# ==========================================================
+# PUBLIC ROUTES
+# ==========================================================
 
 @app.route("/")
 def home():
-    sections = prepared_sections()
-
     return render_page(
         "home.html",
-        page_title="Pabiana Village | Sirmaur, Himachal Pradesh",
+        page_title=(
+            "Pabiana Village | Sirmaur, Himachal Pradesh"
+        ),
         hero=find_photo("pabiana.png"),
         intro=find_photo("mountain.png"),
-        sections=sections,
+        sections=prepared_sections(),
         photos=all_photos()
     )
 
-
-# ============================================================
-# GALLERY
-# ============================================================
 
 @app.route("/gallery")
 def gallery():
@@ -2024,18 +2162,14 @@ def gallery():
     )
 
 
-# ============================================================
-# UPLOADED PHOTO ROUTE
-# ============================================================
-
 @app.route("/uploads/<path:filename>")
 def uploaded_photo(filename):
-    return send_from_directory(UPLOAD_DIR, filename)
+    return send_from_directory(UPLOADS, filename)
 
 
-# ============================================================
+# ==========================================================
 # ADMIN LOGIN
-# ============================================================
+# ==========================================================
 
 @app.route("/admin/login", methods=["GET", "POST"])
 def admin_login():
@@ -2045,11 +2179,14 @@ def admin_login():
     if request.method == "POST":
         verify_csrf()
 
-        username = request.form.get("username", "").strip()
+        username = request.form.get(
+            "username", ""
+        ).strip()
+
         password = request.form.get("password", "")
 
-        with get_db() as db:
-            admin = db.execute(
+        with get_db() as conn:
+            admin = conn.execute(
                 "SELECT * FROM admins WHERE username=?",
                 (username,)
             ).fetchone()
@@ -2059,6 +2196,7 @@ def admin_login():
         ):
             session.clear()
             session["admin"] = username
+
             return redirect(url_for("admin_dashboard"))
 
         flash("Invalid username or password.")
@@ -2070,9 +2208,9 @@ def admin_login():
     )
 
 
-# ============================================================
-# ADMIN DASHBOARD & UPLOAD
-# ============================================================
+# ==========================================================
+# ADMIN DASHBOARD
+# ==========================================================
 
 @app.route("/admin", methods=["GET", "POST"])
 @admin_required
@@ -2082,9 +2220,18 @@ def admin_dashboard():
         verify_csrf()
 
         file = request.files.get("photo")
-        title = request.form.get("title", "").strip()[:100]
-        description = request.form.get("description", "").strip()[:400]
-        category = request.form.get("category", "other")
+
+        title = request.form.get(
+            "title", ""
+        ).strip()[:100]
+
+        description = request.form.get(
+            "description", ""
+        ).strip()[:400]
+
+        category = request.form.get(
+            "category", "other"
+        )
 
         valid_categories = {
             section["id"] for section in SECTIONS
@@ -2101,17 +2248,29 @@ def admin_dashboard():
             secure_filename(file.filename)
         ).suffix.lower()
 
-        if extension not in ALLOWED_IMAGES:
-            flash("Only JPG, PNG and WEBP images are supported.")
+        if extension not in UPLOAD_EXTENSIONS:
+            flash("Only JPG, PNG and WEBP are supported.")
             return redirect(url_for("admin_dashboard"))
-
-        from PIL import Image, UnidentifiedImageError
 
         raw = file.read()
 
         try:
             with Image.open(io.BytesIO(raw)) as image:
                 image.verify()
+
+            with Image.open(io.BytesIO(raw)) as image:
+                actual_format = image.format
+
+            expected_formats = {
+                ".jpg": "JPEG",
+                ".jpeg": "JPEG",
+                ".png": "PNG",
+                ".webp": "WEBP"
+            }
+
+            if actual_format != expected_formats[extension]:
+                raise ValueError("Image format mismatch")
+
         except (UnidentifiedImageError, OSError, ValueError):
             flash("Invalid image file.")
             return redirect(url_for("admin_dashboard"))
@@ -2119,12 +2278,13 @@ def admin_dashboard():
         photo_id = uuid.uuid4().hex
         filename = photo_id + extension
 
-        (UPLOAD_DIR / filename).write_bytes(raw)
+        (UPLOADS / filename).write_bytes(raw)
 
-        with get_db() as db:
-            db.execute("""
+        with get_db() as conn:
+            conn.execute("""
                 INSERT INTO uploaded_photos
-                (id, filename, title, description, category, created_at)
+                (id, filename, title, description,
+                 category, created_at)
                 VALUES (?, ?, ?, ?, ?, ?)
             """, (
                 photo_id,
@@ -2136,11 +2296,13 @@ def admin_dashboard():
             ))
 
         flash("Photo uploaded successfully!")
+
         return redirect(url_for("admin_dashboard"))
 
-    with get_db() as db:
-        uploaded = db.execute(
-            "SELECT * FROM uploaded_photos ORDER BY created_at DESC"
+    with get_db() as conn:
+        uploaded = conn.execute(
+            "SELECT * FROM uploaded_photos "
+            "ORDER BY created_at DESC"
         ).fetchall()
 
     return render_template_string(
@@ -2152,30 +2314,33 @@ def admin_dashboard():
     )
 
 
-# ============================================================
+# ==========================================================
 # DELETE PHOTO
-# ============================================================
+# ==========================================================
 
-@app.route("/admin/delete/<photo_id>", methods=["POST"])
+@app.route(
+    "/admin/delete/<photo_id>",
+    methods=["POST"]
+)
 @admin_required
 def delete_photo(photo_id):
     verify_csrf()
 
-    with get_db() as db:
-        photo = db.execute(
+    with get_db() as conn:
+        photo = conn.execute(
             "SELECT * FROM uploaded_photos WHERE id=?",
             (photo_id,)
         ).fetchone()
 
         if photo:
-            db.execute(
+            conn.execute(
                 "DELETE FROM uploaded_photos WHERE id=?",
                 (photo_id,)
             )
 
     if photo:
         filename = Path(photo["filename"]).name
-        path = UPLOAD_DIR / filename
+        path = UPLOADS / filename
 
         if path.is_file():
             path.unlink()
@@ -2185,9 +2350,9 @@ def delete_photo(photo_id):
     return redirect(url_for("admin_dashboard"))
 
 
-# ============================================================
+# ==========================================================
 # LOGOUT
-# ============================================================
+# ==========================================================
 
 @app.route("/admin/logout", methods=["POST"])
 @admin_required
@@ -2197,9 +2362,9 @@ def admin_logout():
     return redirect(url_for("home"))
 
 
-# ============================================================
+# ==========================================================
 # SEO
-# ============================================================
+# ==========================================================
 
 @app.route("/robots.txt")
 def robots():
@@ -2210,7 +2375,7 @@ def robots():
         "Disallow: /admin/login\n"
     )
 
-    return app.response_class(
+    return Response(
         content,
         mimetype="text/plain"
     )
@@ -2218,8 +2383,6 @@ def robots():
 
 @app.route("/sitemap.xml")
 def sitemap():
-    from xml.sax.saxutils import escape
-
     base_url = request.url_root.rstrip("/")
 
     urls = [
@@ -2234,20 +2397,21 @@ def sitemap():
 
     xml = (
         '<?xml version="1.0" encoding="UTF-8"?>'
-        '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'
+        '<urlset xmlns="http://www.sitemaps.org/'
+        'schemas/sitemap/0.9">'
         + entries +
         '</urlset>'
     )
 
-    return app.response_class(
+    return Response(
         xml,
         mimetype="application/xml"
     )
 
 
-# ============================================================
+# ==========================================================
 # START
-# ============================================================
+# ==========================================================
 
 if __name__ == "__main__":
     app.run(
