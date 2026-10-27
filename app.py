@@ -291,6 +291,7 @@ HTML = r"""
 <html lang="en">
 
 <head>
+<meta name="google-site-verification" content="YK1rfP_sDmG4xgrp4DahlcmsuC8MFlnk8DNsooUqoXU" />
 
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
