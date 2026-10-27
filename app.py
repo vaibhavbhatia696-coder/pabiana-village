@@ -1,37 +1,38 @@
 
 from flask import (
-    Flask, render_template_string, request, redirect,
-    url_for, session, flash, abort, send_from_directory, Response
+    Flask, render_template_string, request,
+    redirect, url_for, session, flash,
+    send_from_directory, abort
 )
 from werkzeug.security import generate_password_hash, check_password_hash
-from functools import wraps
+from werkzeug.utils import secure_filename
 from pathlib import Path
+from functools import wraps
 from datetime import datetime
-from PIL import Image, ImageOps
-from xml.sax.saxutils import escape
+from jinja2 import DictLoader
 import sqlite3
 import secrets
+import os
 import uuid
 import io
-import os
-import re
 
 # ============================================================
-# PABIANA VILLAGE | GREEN + BLUE PREMIUM EDITION
-# Created by Vaibhav Bhatia
-# All HTML, CSS and JavaScript inside this app.py
+# PABIANA VILLAGE — PREMIUM GREEN & BLUE EDITION
+# Complete single-file Flask website
 # ============================================================
 
-BASE = Path(__file__).resolve().parent
-STATIC = BASE / "static"
-DATA = BASE / "pabiana_data"
-UPLOADS = DATA / "uploads"
-DB = DATA / "website.db"
+BASE_DIR = Path(__file__).resolve().parent
+STATIC_DIR = BASE_DIR / "static"
+IMAGE_DIR = STATIC_DIR / "images"
+DATA_DIR = BASE_DIR / "pabiana_data"
+UPLOAD_DIR = DATA_DIR / "uploads"
+DB_PATH = DATA_DIR / "website.db"
 
-STATIC.mkdir(parents=True, exist_ok=True)
-UPLOADS.mkdir(parents=True, exist_ok=True)
+for folder in (STATIC_DIR, IMAGE_DIR, DATA_DIR, UPLOAD_DIR):
+    folder.mkdir(parents=True, exist_ok=True)
 
-app = Flask(__name__, static_folder=str(STATIC))
+app = Flask(__name__, static_folder=str(STATIC_DIR))
+
 app.secret_key = os.environ.get("SECRET_KEY") or secrets.token_hex(32)
 
 app.config.update(
@@ -41,184 +42,170 @@ app.config.update(
     SESSION_COOKIE_SECURE=os.environ.get("COOKIE_SECURE") == "1"
 )
 
-EXTENSIONS = {".png", ".jpg", ".jpeg", ".webp", ".gif"}
+ALLOWED_IMAGES = {".png", ".jpg", ".jpeg", ".webp"}
 
 # ============================================================
-# VILLAGE INFORMATION AND PHOTOS
+# VILLAGE INFORMATION
 # ============================================================
 
 SECTIONS = [
     {
-        "id": "view",
-        "file": "view.png",
-        "tag": "NATURAL BEAUTY",
-        "title": "Beautiful Views of Pabiana",
-        "hi": "पबियाना के खूबसूरत नज़ारे",
-        "subtitle": "Where nature feels like home.",
-        "subtitle_hi": "जहाँ प्रकृति में अपनापन महसूस होता है।",
+        "id": "mountain",
+        "image": "mountain.png",
+        "tag": "01 / MOUNTAIN LANDSCAPES",
+        "name": "Krol Tibba, Solan & Kali Tibba, Chail",
+        "name_hi": "क्रोल टिब्बा सोलन और काली टिब्बा चायल",
+        "title": "Where the mountains whisper.",
+        "title_hi": "जहाँ पहाड़ अपनी कहानी कहते हैं।",
         "description": (
-            "Surrounded by the beautiful hills of Himachal "
-            "Pradesh, Pabiana offers peaceful mountain views "
-            "towards Krol Tibba, Solan and Chail. Green "
-            "landscapes, fresh mountain air and changing "
-            "clouds make this village truly special."
+            "The mountain landscapes of Himachal Pradesh are "
+            "known for their natural beauty and peaceful atmosphere. "
+            "Krol Tibba is a prominent mountain landmark near Solan, "
+            "while Kali Tibba in Chail is known for its hilltop "
+            "Kali Mata temple and beautiful panoramic views. "
+            "Both places reflect the natural and cultural charm "
+            "of the region."
         ),
         "description_hi": (
-            "हिमाचल प्रदेश की सुंदर पहाड़ियों से घिरा "
-            "पबियाना, क्रोल टिब्बा, सोलन और चायल की ओर "
-            "खूबसूरत नज़ारे प्रस्तुत करता है। हरियाली, "
-            "ताज़ी हवा और शांत वातावरण इसकी खास पहचान हैं।"
+            "हिमाचल प्रदेश के पहाड़ अपनी प्राकृतिक सुंदरता और "
+            "शांत वातावरण के लिए प्रसिद्ध हैं। सोलन के पास "
+            "स्थित क्रोल टिब्बा एक प्रमुख पहाड़ी स्थल है। "
+            "चायल का काली टिब्बा अपने काली माता मंदिर और "
+            "सुंदर पहाड़ी नज़ारों के लिए जाना जाता है। "
+            "ये दोनों स्थान क्षेत्र की प्राकृतिक और "
+            "सांस्कृतिक सुंदरता को दर्शाते हैं।"
         ),
-        "caption": "A little closer to the clouds, a little closer to home.",
-        "caption_hi": "बादलों के करीब, अपने घर के और भी करीब।",
-        "keywords": ["view", "mountain", "krol", "chail", "valley"]
+        "caption": "Closer to the clouds, closer to nature."
     },
     {
         "id": "temple",
-        "file": "temple.png",
-        "tag": "FAITH & HERITAGE",
-        "title": "Temples and Traditions",
-        "hi": "मंदिर और परंपराएँ",
-        "subtitle": "Our faith. Our culture.",
-        "subtitle_hi": "हमारी आस्था, हमारी संस्कृति।",
+        "image": "temple.png",
+        "tag": "02 / FAITH & HERITAGE",
+        "name": "Temples of Pabiana",
+        "name_hi": "पबियाना के मंदिर",
+        "title": "Faith rooted in the hills.",
+        "title_hi": "पहाड़ों में बसी आस्था।",
         "description": (
-            "The temples of Pabiana and the surrounding "
-            "region reflect the faith, culture and heritage "
-            "of our community. They are a meaningful part "
-            "of traditions passed down through generations."
+            "The temples of Pabiana and the surrounding region "
+            "reflect local faith, culture and traditions. "
+            "They form an important part of the village's "
+            "heritage and community life."
         ),
         "description_hi": (
-            "पबियाना और आसपास के मंदिर हमारी आस्था, "
-            "संस्कृति और विरासत को दर्शाते हैं। "
-            "ये पीढ़ियों से चली आ रही परंपराओं का "
-            "महत्वपूर्ण हिस्सा हैं।"
+            "पबियाना और आसपास के मंदिर स्थानीय आस्था, "
+            "संस्कृति और परंपराओं की पहचान हैं। "
+            "ये गाँव की विरासत और सामुदायिक जीवन "
+            "का महत्वपूर्ण हिस्सा हैं।"
         ),
-        "caption": "Peace in the mountains, faith in our hearts.",
-        "caption_hi": "पहाड़ों में शांति, दिलों में आस्था।",
-        "keywords": ["temple", "mandir", "devta", "devi"]
+        "caption": "A peaceful corner of our heritage."
     },
     {
         "id": "senior",
-        "file": "school.png",
-        "tag": "EDUCATION & FUTURE",
-        "title": "Senior Secondary School Pabiana",
-        "hi": "वरिष्ठ माध्यमिक विद्यालय पबियाना",
-        "subtitle": "Learning today. Leading tomorrow.",
-        "subtitle_hi": "आज की शिक्षा, कल का उज्ज्वल भविष्य।",
+        "image": "school.png",
+        "tag": "03 / EDUCATION & TOMORROW",
+        "name": "Senior Secondary School Pabiana",
+        "name_hi": "वरिष्ठ माध्यमिक विद्यालय पबियाना",
+        "title": "Dreams grow here.",
+        "title_hi": "यहाँ सपनों को नई उड़ान मिलती है।",
         "description": (
-            "Senior Secondary School Pabiana is an important "
-            "part of the village's educational identity. "
-            "It represents knowledge, opportunity, confidence "
-            "and the dreams of the next generation."
+            "Senior Secondary School Pabiana represents "
+            "education, opportunity and the ambitions of "
+            "future generations. It is an important part "
+            "of the educational identity of our village."
         ),
         "description_hi": (
-            "वरिष्ठ माध्यमिक विद्यालय पबियाना गाँव की "
-            "शैक्षणिक पहचान का महत्वपूर्ण हिस्सा है। "
-            "यह ज्ञान, अवसर और आने वाली पीढ़ी के "
-            "सपनों का प्रतीक है।"
+            "वरिष्ठ माध्यमिक विद्यालय पबियाना शिक्षा, "
+            "अवसर और आने वाली पीढ़ियों के सपनों "
+            "का प्रतीक है। यह हमारे गाँव की "
+            "शैक्षिक पहचान का महत्वपूर्ण हिस्सा है।"
         ),
-        "caption": "A place where knowledge opens new doors.",
-        "caption_hi": "जहाँ शिक्षा नए अवसरों के द्वार खोलती है।",
-        "keywords": ["school", "secondary", "senior", "sen sec"]
+        "caption": "A place of learning, hope and possibility."
     },
     {
         "id": "primary",
-        "file": "primary.png",
-        "tag": "LITTLE STEPS, BIG DREAMS",
-        "title": "Primary School Pabiana",
-        "hi": "प्राथमिक विद्यालय पबियाना",
-        "subtitle": "Little beginnings. Beautiful futures.",
-        "subtitle_hi": "छोटी शुरुआत, खूबसूरत भविष्य।",
+        "image": "primary.png",
+        "tag": "04 / THE FIRST STEP",
+        "name": "Primary School Pabiana",
+        "name_hi": "प्राथमिक विद्यालय पबियाना",
+        "title": "Little steps. Bright futures.",
+        "title_hi": "छोटे कदम, उज्ज्वल भविष्य।",
         "description": (
             "Every great journey begins with a small step. "
-            "Primary School Pabiana is where young children "
-            "take their first steps into learning, friendship "
-            "and a brighter future."
+            "Primary School Pabiana represents the beginning "
+            "of learning, friendship and discovery for "
+            "the young children of our village."
         ),
         "description_hi": (
-            "हर बड़ी मंज़िल की शुरुआत एक छोटे कदम से "
-            "होती है। प्राथमिक विद्यालय पबियाना वह "
-            "स्थान है जहाँ छोटे बच्चे शिक्षा, दोस्ती "
-            "और उज्ज्वल भविष्य की ओर अपना पहला कदम "
-            "बढ़ाते हैं।"
+            "हर बड़ी मंज़िल की शुरुआत छोटे कदम से होती है। "
+            "प्राथमिक विद्यालय पबियाना हमारे गाँव के "
+            "बच्चों की शिक्षा और उज्ज्वल भविष्य की "
+            "शुरुआत का प्रतीक है।"
         ),
-        "caption": "Small steps today, endless possibilities tomorrow.",
-        "caption_hi": "आज के छोटे कदम, कल की अनगिनत संभावनाएँ।",
-        "keywords": ["primary", "prathmik"]
+        "caption": "Small beginnings, beautiful possibilities."
     },
     {
         "id": "panchayat",
-        "file": "panchayal.png",
-        "tag": "OUR COMMUNITY",
-        "title": "Gram Panchayat Ser Jagas",
-        "hi": "ग्राम पंचायत सेर जगास",
-        "subtitle": "Together, we are stronger.",
-        "subtitle_hi": "एक साथ, हम और मजबूत।",
+        "image": "panchayal.png",
+        "tag": "05 / OUR COMMUNITY",
+        "name": "Gram Panchayat Ser Jagas",
+        "name_hi": "ग्राम पंचायत सेर जगास",
+        "title": "The heart of our community.",
+        "title_hi": "हमारे समुदाय की पहचान।",
         "description": (
             "Gram Panchayat Ser Jagas, Vikas Khand Rajgarh, "
             "is an important part of local administration "
-            "and community life in the surrounding area."
+            "and community development in the region."
         ),
         "description_hi": (
             "ग्राम पंचायत सेर जगास, विकास खंड राजगढ़, "
-            "स्थानीय प्रशासन और आसपास के क्षेत्र के "
-            "सामुदायिक जीवन का महत्वपूर्ण हिस्सा है।"
+            "क्षेत्र के स्थानीय प्रशासन और "
+            "सामुदायिक विकास का महत्वपूर्ण हिस्सा है।"
         ),
-        "caption": "Our people. Our roots. Our community.",
-        "caption_hi": "हमारे लोग, हमारी जड़ें, हमारा समुदाय।",
-        "keywords": ["panchayat", "panchayal", "ser jagas"]
+        "caption": "Together, we make a community."
     },
     {
         "id": "resort",
-        "file": "resort.png",
-        "tag": "MOUNTAIN HOSPITALITY",
-        "title": "Resort and Mountain Retreat",
-        "hi": "रिज़ॉर्ट और पहाड़ी ठहराव",
-        "subtitle": "Stay close to nature.",
-        "subtitle_hi": "प्रकृति के और करीब।",
+        "image": "resort.png",
+        "tag": "06 / MOUNTAIN HOSPITALITY",
+        "name": "Resorts & Mountain Stays",
+        "name_hi": "रिज़ॉर्ट और पहाड़ी ठहराव",
+        "title": "Stay close to nature.",
+        "title_hi": "प्रकृति के और करीब ठहरिए।",
         "description": (
-            "The resort pictured in the Pabiana area is "
-            "surrounded by scenic hills and a peaceful "
-            "mountain atmosphere. The beautiful landscape "
-            "offers memorable surroundings for visitors."
+            "The beautiful mountain surroundings offer "
+            "peaceful scenery and a refreshing atmosphere. "
+            "The pictured resort and mountain stay "
+            "locations reflect the charm of the hills."
         ),
         "description_hi": (
-            "पबियाना क्षेत्र का यह रिज़ॉर्ट खूबसूरत "
-            "पहाड़ियों और शांत वातावरण से घिरा हुआ है। "
-            "यहाँ की प्राकृतिक सुंदरता और पहाड़ी "
-            "नज़ारे इसे यादगार बनाते हैं।"
+            "इस क्षेत्र का शांत वातावरण और खूबसूरत "
+            "पहाड़ी नज़ारे प्रकृति के करीब रहने "
+            "का सुंदर अनुभव प्रदान करते हैं।"
         ),
-        "caption": "Beautiful mountains, peaceful moments.",
-        "caption_hi": "खूबसूरत पहाड़, सुकून भरे पल।",
-        "keywords": ["resort", "hotel", "homestay"]
+        "caption": "Where mountains feel like home."
     },
     {
         "id": "road",
-        "file": "road.png",
-        "tag": "THE ROAD THAT CONNECTS US",
-        "title": "Main Road to Solan",
-        "hi": "सोलन जाने वाली मुख्य सड़क",
-        "subtitle": "Connecting Sirmaur with Solan.",
-        "subtitle_hi": "सिरमौर को सोलन से जोड़ता मार्ग।",
+        "image": "road.png",
+        "tag": "07 / THE ROAD THAT CONNECTS US",
+        "name": "Main Road to Solan",
+        "name_hi": "सोलन मुख्य मार्ग",
+        "title": "Every road tells a story.",
+        "title_hi": "हर रास्ते की अपनी कहानी होती है।",
         "description": (
-            "The main road passing through the Pabiana area "
-            "connects the Sirmaur region with Solan. "
-            "Solan is approximately 32 kilometres away "
-            "by this route. Surrounded by beautiful mountain "
-            "scenery, this road is an important connection "
-            "for local residents and travellers."
+            "The scenic main road connects the Pabiana "
+            "area with Solan and nearby regions. "
+            "The route offers beautiful mountain views "
+            "and plays an important role in everyday "
+            "travel and connectivity."
         ),
         "description_hi": (
-            "पबियाना क्षेत्र से गुजरने वाली मुख्य सड़क "
-            "सिरमौर को सोलन से जोड़ती है। इस मार्ग "
-            "से सोलन लगभग 32 किलोमीटर दूर है। "
-            "सुंदर पहाड़ों के बीच से गुजरने वाली यह "
-            "सड़क स्थानीय लोगों और यात्रियों के लिए "
-            "महत्वपूर्ण है।"
+            "यह खूबसूरत मुख्य सड़क पबियाना क्षेत्र "
+            "को सोलन और आसपास के इलाकों से जोड़ती है। "
+            "इस मार्ग पर सुंदर पहाड़ी नज़ारे देखने "
+            "को मिलते हैं।"
         ),
-        "caption": "32 km to Solan — a beautiful journey through the hills.",
-        "caption_hi": "सोलन 32 किलोमीटर — पहाड़ों के बीच खूबसूरत सफर।",
-        "keywords": ["road", "highway", "solan road"]
+        "caption": "Connecting places, people and memories."
     }
 ]
 
@@ -227,9 +214,9 @@ SECTIONS = [
 # ============================================================
 
 def get_db():
-    connection = sqlite3.connect(DB)
-    connection.row_factory = sqlite3.Row
-    return connection
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    return conn
 
 
 def init_db():
@@ -252,113 +239,83 @@ def init_db():
             )
         """)
 
-        count = db.execute(
+        username = os.environ.get("ADMIN_USERNAME", "admin")
+        password = os.environ.get("ADMIN_PASSWORD", "")
+
+        existing = db.execute(
             "SELECT COUNT(*) FROM admins"
         ).fetchone()[0]
 
-        password = os.environ.get("ADMIN_PASSWORD", "")
-
-        if count == 0 and len(password) >= 12:
+        if existing == 0 and len(password) >= 12:
             db.execute(
                 "INSERT INTO admins VALUES (?, ?)",
-                (
-                    os.environ.get("ADMIN_USERNAME", "admin"),
-                    generate_password_hash(password)
-                )
+                (username, generate_password_hash(password))
             )
 
 
 init_db()
 
 # ============================================================
-# AUTOMATIC PHOTO DETECTION
+# IMAGE HELPERS
 # ============================================================
 
-def normalize(value):
-    return re.sub(r"[^a-z0-9]+", " ", value.lower()).strip()
-
-
 def find_photo(filename):
-    # Exact match first
-    direct = STATIC / filename
+    direct = IMAGE_DIR / filename
 
     if direct.is_file():
-        return direct.relative_to(STATIC).as_posix()
+        return url_for(
+            "static",
+            filename=f"images/{filename}"
+        )
 
-    wanted_stem = normalize(Path(filename).stem)
-
-    # Match filename with any supported image extension
-    for path in STATIC.rglob("*"):
-        if not path.is_file():
-            continue
-
-        if path.suffix.lower() not in EXTENSIONS:
-            continue
-
-        if normalize(path.stem) == wanted_stem:
-            return path.relative_to(STATIC).as_posix()
+    for file in STATIC_DIR.rglob("*"):
+        if file.is_file() and file.name.lower() == filename.lower():
+            return url_for(
+                "static",
+                filename=file.relative_to(STATIC_DIR).as_posix()
+            )
 
     return None
 
 
-def photo_url(filename):
-    relative = find_photo(filename)
-
-    if relative:
-        return url_for("static", filename=relative)
-
-    return None
-
-
-def category_for(filename):
-    name = normalize(Path(filename).stem)
-
-    # Primary must be checked before generic school.
-    if "primary" in name:
-        return "primary"
-
-    if name == "school" or "secondary" in name or "sen sec" in name:
-        return "senior"
+def prepared_sections():
+    result = []
 
     for section in SECTIONS:
-        for keyword in section["keywords"]:
-            if normalize(keyword) in name:
-                return section["id"]
+        item = section.copy()
+        item["url"] = find_photo(section["image"])
+        result.append(item)
 
-    return "other"
+    return result
 
 
 def all_photos():
     photos = []
-    excluded = {
-        "pabiana.png",
-        "pabiana.jpg",
-        "pabiana.jpeg",
-        "pabiana.webp",
-        "vaibhav.jpg",
-        "vaibhav.jpeg",
-        "vaibhav.png",
-        "vaibhav.webp"
-    }
+    seen = set()
 
-    for path in sorted(STATIC.rglob("*")):
-        if not path.is_file():
+    for file in sorted(STATIC_DIR.rglob("*")):
+        if not file.is_file():
             continue
 
-        if path.suffix.lower() not in EXTENSIONS:
+        if file.suffix.lower() not in ALLOWED_IMAGES:
             continue
 
-        if path.name.lower() in excluded:
+        if file.name.lower() in {
+            "vaibhav.jpg", "vaibhav.png"
+        }:
             continue
 
-        relative = path.relative_to(STATIC).as_posix()
+        relative = file.relative_to(STATIC_DIR).as_posix()
+
+        if relative in seen:
+            continue
+
+        seen.add(relative)
 
         photos.append({
-            "id": relative,
             "url": url_for("static", filename=relative),
-            "category": category_for(path.name),
-            "title": path.stem,
-            "source": "static"
+            "title": file.stem.replace("_", " ").title(),
+            "category": "Village Photography"
         })
 
     with get_db() as db:
@@ -366,24 +323,22 @@ def all_photos():
             "SELECT * FROM uploaded_photos ORDER BY created_at DESC"
         ).fetchall()
 
-    for record in records:
-        if (UPLOADS / record["filename"]).is_file():
+    for photo in records:
+        if (UPLOAD_DIR / photo["filename"]).is_file():
             photos.append({
-                "id": record["id"],
                 "url": url_for(
                     "uploaded_photo",
-                    filename=record["filename"]
+                    filename=photo["filename"]
                 ),
-                "category": record["category"],
-                "title": record["title"],
-                "source": "upload"
+                "title": photo["title"],
+                "category": photo["category"]
             })
 
     return photos
 
 
 # ============================================================
-# ADMIN SECURITY
+# SECURITY HELPERS
 # ============================================================
 
 def csrf_token():
@@ -391,9 +346,6 @@ def csrf_token():
         session["csrf"] = secrets.token_hex(24)
 
     return session["csrf"]
-
-
-app.jinja_env.globals["csrf_token"] = csrf_token
 
 
 def verify_csrf():
@@ -404,1610 +356,1109 @@ def verify_csrf():
         abort(400)
 
 
-def admin_required(function):
-    @wraps(function)
+def admin_required(func):
+    @wraps(func)
     def wrapper(*args, **kwargs):
         if not session.get("admin"):
             return redirect(url_for("admin_login"))
 
-        return function(*args, **kwargs)
+        return func(*args, **kwargs)
 
     return wrapper
 
 
+app.jinja_env.globals["csrf_token"] = csrf_token
+
 # ============================================================
-# PREMIUM GREEN + BLUE DESIGN
+# COMPLETE PREMIUM CSS
 # ============================================================
 
-CSS = """
-@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap');
+CSS = r"""
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800;900&family=Cormorant+Garamond:wght@500;600;700&display=swap');
 
-:root{
- --green:#00a878;
- --darkgreen:#087a62;
- --blue:#236ce7;
- --sky:#59c6e9;
- --navy:#102c42;
- --text:#203646;
- --muted:#687e8d;
- --mint:#e9fff4;
- --ice:#eaf4ff;
- --white:#fff;
+:root {
+    --green: #128c73;
+    --green-dark: #075c50;
+    --blue: #1682c7;
+    --blue-dark: #14518d;
+    --purple: #7954c5;
+    --dark: #123e4d;
+    --gold: #e8c58e;
+    --text: #173b48;
+    --muted: #647d87;
+    --white: #ffffff;
+    --serif: 'Cormorant Garamond', Georgia, serif;
+    --sans: 'Poppins', sans-serif;
 }
 
-*{box-sizing:border-box}
-html{scroll-behavior:smooth}
-body{
- margin:0;
- font-family:'Poppins',sans-serif;
- background:white;
- color:var(--text);
- overflow-x:hidden;
-}
-body.lock{overflow:hidden}
-a{text-decoration:none;color:inherit}
-button,input,select,textarea{font:inherit}
-button{cursor:pointer}
-img{display:block;max-width:100%}
-
-.container{
- width:min(1260px,calc(100% - 64px));
- margin:auto;
+* {
+    box-sizing: border-box;
 }
 
-.gradient{
- background:linear-gradient(110deg,#00a878,#246ce9);
- background-clip:text;
- -webkit-background-clip:text;
- color:transparent;
+html {
+    scroll-behavior: smooth;
 }
 
-.kicker{
- color:var(--darkgreen);
- font-size:11px;
- font-weight:700;
- letter-spacing:2px;
+body {
+    margin: 0;
+    font-family: var(--sans);
+    background: #fafffd;
+    color: var(--text);
+    overflow-x: hidden;
 }
 
-.heading{
- font-size:clamp(36px,4.7vw,66px);
- font-weight:800;
- line-height:1.24;
- letter-spacing:-1.7px;
- margin:22px 0;
+body.lock {
+    overflow: hidden;
 }
 
-.btn{
- display:inline-flex;
- justify-content:center;
- align-items:center;
- padding:16px 27px;
- border-radius:13px;
- border:0;
- font-size:12px;
- font-weight:700;
- transition:transform .3s,box-shadow .3s;
+a {
+    text-decoration: none;
+    color: inherit;
 }
 
-.btn:hover{
- transform:translateY(-5px);
- box-shadow:0 16px 35px #087b9b3b;
+button, input, select, textarea {
+    font: inherit;
 }
 
-.btn-primary{
- background:linear-gradient(110deg,#00a878,#246ce9);
- color:white;
+button {
+    cursor: pointer;
 }
 
-.btn-white{
- background:white;
- color:#075d64;
+img {
+    display: block;
+    max-width: 100%;
 }
 
-.btn-glass{
- background:#ffffff20;
- border:1px solid #ffffff8a;
- color:white;
- backdrop-filter:blur(10px);
+.container {
+    width: min(1250px, calc(100% - 44px));
+    margin: auto;
 }
 
-/* NAVBAR */
+/* NAVIGATION */
 
-.navbar{
- position:absolute;
- top:0;
- left:0;
- width:100%;
- z-index:100;
- padding:22px 0;
- color:white;
- transition:.3s;
+.navbar {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 50;
+    padding: 22px 0;
+    color: white;
+    transition: .3s;
 }
 
-.navbar.sticky{
- position:fixed;
- padding:12px 0;
- background:#092e43f2;
- backdrop-filter:blur(18px);
- box-shadow:0 12px 30px #0003;
+.navbar.sticky {
+    position: fixed;
+    background: rgba(7, 57, 68, .96);
+    backdrop-filter: blur(18px);
+    padding: 12px 0;
+    box-shadow: 0 10px 30px #0002;
 }
 
-.nav-inner{
- display:flex;
- align-items:center;
- justify-content:space-between;
- gap:20px;
+.nav-inner {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 20px;
 }
 
-.brand{
- font-size:25px;
- font-weight:800;
- letter-spacing:2px;
+.brand {
+    font-weight: 900;
+    font-size: 24px;
+    letter-spacing: 3px;
 }
 
-.brand span{color:#8cf6cf}
-
-.brand small{
- display:block;
- font-size:8px;
- font-weight:500;
- letter-spacing:2.3px;
+.brand small {
+    display: block;
+    font-size: 8px;
+    letter-spacing: 2px;
+    color: #b8f3df;
 }
 
-.nav-links{
- display:flex;
- align-items:center;
- gap:24px;
- font-size:11px;
- font-weight:700;
+.nav-links {
+    display: flex;
+    align-items: center;
+    gap: 25px;
+    font-size: 11px;
+    font-weight: 700;
 }
 
-.nav-links a:hover{color:#9ff5d7}
-
-.creator{
- display:flex;
- align-items:center;
- gap:9px;
- background:#ffffff21;
- border:1px solid #ffffff60;
- border-radius:50px;
- padding:5px 12px 5px 5px;
+.nav-links a:hover {
+    color: #b5f5dc;
 }
 
-.creator img,.avatar{
- width:38px;
- height:38px;
- border-radius:50%;
- object-fit:cover;
- border:2px solid #a6f4d9;
+.lang-btn {
+    border: 1px solid #ffffff70;
+    border-radius: 30px;
+    padding: 9px 15px;
+    background: #ffffff22;
+    color: white;
 }
 
-.avatar{
- display:grid;
- place-items:center;
- background:var(--green);
- color:white;
- font-weight:800;
+.menu-btn {
+    display: none;
+    background: #ffffff22;
+    border: 1px solid #ffffff70;
+    color: white;
+    padding: 9px 13px;
+    border-radius: 10px;
 }
 
-.creator small{
- display:block;
- font-size:8px;
- color:#c8ffeb;
+/* HERO */
+
+.hero {
+    position: relative;
+    min-height: 720px;
+    height: 100svh;
+    max-height: 1050px;
+    display: flex;
+    align-items: center;
+    overflow: hidden;
+    color: white;
+    background: linear-gradient(125deg, #073f49, #137e94);
 }
 
-.creator strong{font-size:11px}
-
-.menu{
- display:none;
- border:1px solid #ffffff70;
- background:#ffffff20;
- border-radius:10px;
- padding:10px 13px;
- color:white;
+.hero-photo {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: contain !important;
+    object-position: center !important;
 }
 
-/* HERO - PABIANA.PNG FIRST */
-
-.hero{
- height:100svh;
- min-height:690px;
- max-height:1100px;
- position:relative;
- display:flex;
- align-items:center;
- overflow:hidden;
- background:#092c40;
- color:white;
+.hero-shade {
+    position: absolute;
+    inset: 0;
+    background:
+        linear-gradient(90deg, #063d47df, #075b7090 60%, #064d6930),
+        linear-gradient(0deg, #083b4599, transparent 70%);
 }
 
-.hero-photo{
- position:absolute;
- inset:0;
- width:100%;
- height:100%;
- object-fit:contain;
- object-position:center;
- animation:heroEnter 1.7s ease both;
+.hero-content {
+    position: relative;
+    z-index: 2;
+    padding: 130px 0 80px;
 }
 
-.hero-fallback{
- position:absolute;
- inset:0;
- background:linear-gradient(125deg,#067c71,#226ad4);
+.eyebrow {
+    color: #b5f4d9;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 3px;
 }
 
-.hero-shade{
- position:absolute;
- inset:0;
- background:
- linear-gradient(90deg,#051d30e0,#082f4c99 55%,#082d471b),
- linear-gradient(0deg,#041c2e99,transparent 55%);
+.hero h1 {
+    font-family: var(--serif);
+    font-size: clamp(75px, 11vw, 155px);
+    font-weight: 700;
+    line-height: .9;
+    margin: 30px 0;
 }
 
-.hero-content{
- position:relative;
- z-index:2;
- padding:110px 0 70px;
- animation:fadeUp 1.1s ease both;
+.hero h1 em {
+    display: block;
+    color: #b5f5e2;
 }
 
-.hero-tag{
- display:inline-block;
- padding:12px 18px;
- border-radius:40px;
- border:1px solid #c6ffe59c;
- background:#ffffff1b;
- color:#b9ffe4;
- font-size:10px;
- letter-spacing:1.8px;
- font-weight:700;
+.hero p {
+    max-width: 570px;
+    line-height: 2;
+    color: #f0fffb;
+    font-size: 15px;
 }
 
-.hero h1{
- font-size:clamp(53px,8vw,112px);
- font-weight:800;
- line-height:1.1;
- letter-spacing:-3px;
- margin:30px 0 22px;
+.actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 15px;
+    margin-top: 35px;
 }
 
-.hero h1 span{color:#a4ffdb}
-
-.hero p{
- max-width:570px;
- font-size:15px;
- line-height:2;
- color:#f1fbff;
+.btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px 27px;
+    border-radius: 40px;
+    font-size: 11px;
+    font-weight: 800;
+    transition: .3s;
+    border: none;
 }
 
-.hero-buttons{
- display:flex;
- flex-wrap:wrap;
- gap:14px;
- margin-top:35px;
+.btn:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 15px 30px #064c5b30;
 }
 
-.scroll-note{
- position:absolute;
- z-index:3;
- bottom:30px;
- left:0;
- right:0;
- text-align:center;
- font-size:10px;
- letter-spacing:2px;
- color:#d6fff0;
+.btn-gold {
+    background: linear-gradient(110deg, #b7f2c8, #a9ddff);
+    color: #124354;
 }
 
-.scroll-note span{
- display:block;
- font-size:23px;
- animation:bounce 2s infinite;
+.btn-outline {
+    border: 1px solid #ffffffaa;
+    color: white;
+    background: #ffffff18;
+}
+
+.btn-dark {
+    background: linear-gradient(110deg, #138b71, #177fca);
+    color: white;
 }
 
 /* INTRO */
 
-.intro{
- padding:125px 0;
- background:
- radial-gradient(circle at 5% 15%,#e2fff0,transparent 40%),
- radial-gradient(circle at 95% 85%,#e6f2ff,transparent 45%),
- white;
+.intro {
+    padding: 125px 0;
 }
 
-.intro-grid{
- display:grid;
- grid-template-columns:1fr 1fr;
- gap:80px;
- align-items:center;
+.intro-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    align-items: center;
+    gap: 80px;
 }
 
-.intro p{
- color:var(--muted);
- font-size:14px;
- line-height:2.2;
+.intro-image {
+    min-height: 460px;
+    height: 510px;
+    border-radius: 220px 220px 25px 25px;
+    background: linear-gradient(135deg, #b9ecd3, #b2dff9);
+    overflow: hidden;
+    box-shadow: 0 30px 65px #145c7030;
 }
 
-.intro-photo{
- height:470px;
- border-radius:28px;
- overflow:hidden;
- background:linear-gradient(120deg,#b4eedb,#bed9ff);
- box-shadow:0 24px 65px #087b9026;
+.intro-image img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain !important;
+    object-position: center !important;
 }
 
-.intro-photo img{
- width:100%;
- height:100%;
- object-fit:cover;
+.label {
+    color: var(--green);
+    font-size: 11px;
+    letter-spacing: 3px;
+    font-weight: 800;
 }
 
-.intro-pill{
- display:inline-block;
- margin-top:22px;
- padding:12px 18px;
- border-radius:30px;
- background:#ddfaec;
- color:#08775d;
- font-size:11px;
- font-weight:700;
+.title {
+    font-family: var(--serif);
+    font-size: clamp(52px, 6vw, 88px);
+    font-weight: 600;
+    line-height: 1.05;
+    margin: 25px 0;
 }
 
-/* LEFT RIGHT ALTERNATING LAYOUT */
-
-.places{
- padding:95px 0 25px;
+.title em {
+    color: var(--green);
 }
 
-.places-header{
- text-align:center;
- margin-bottom:100px;
+.copy {
+    font-size: 14px;
+    line-height: 2.2;
+    color: var(--muted);
 }
 
-.place{
- display:grid;
- grid-template-columns:minmax(0,1.08fr) minmax(0,.92fr);
- gap:clamp(35px,6vw,95px);
- align-items:center;
- margin-bottom:135px;
+/* ZIGZAG SECTIONS */
+
+.places {
+    padding: 60px 0 40px;
 }
 
-.place.reverse{
- grid-template-columns:minmax(0,.92fr) minmax(0,1.08fr);
+.places-heading {
+    margin-bottom: 90px;
 }
 
-.place.reverse .photo-side{order:2}
-.place.reverse .text-side{order:1}
+.place {
+    display: grid;
+    grid-template-columns: 1.08fr .92fr;
+    align-items: center;
+    gap: clamp(35px, 7vw, 105px);
+    margin-bottom: 140px;
+}
 
-.photo-frame{
- position:relative;
- height:510px;
- padding:11px;
- border-radius:28px;
- background:linear-gradient(135deg,#dcfff0,#dbeaff);
- box-shadow:0 24px 65px #0c718d24;
+.place.reverse {
+    grid-template-columns: .92fr 1.08fr;
 }
 
-.photo-inner{
- width:100%;
- height:100%;
- border-radius:19px;
- overflow:hidden;
- background:#e5f5f0;
- display:flex;
- align-items:center;
- justify-content:center;
+.place.reverse .place-visual {
+    order: 2;
 }
 
-.photo-inner img{
- width:100%;
- height:100%;
- object-fit:cover;
- transition:transform .7s ease;
+.place-visual {
+    height: 530px;
+    position: relative;
+    overflow: hidden;
+    border-radius: 20px 130px 20px 20px;
+    background: linear-gradient(135deg, #d2f4e5, #b9e3f8);
+    box-shadow: 0 25px 60px #145a7426;
 }
 
-.photo-frame:hover img{
- transform:scale(1.045);
+.place.reverse .place-visual {
+    border-radius: 130px 20px 20px 20px;
 }
 
-/* ROAD PHOTO MUST SHOW COMPLETELY */
+/* COMPLETE IMAGE VISIBILITY */
 
-.place.road .photo-inner img{
- object-fit:contain;
+.place-visual img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain !important;
+    object-position: center !important;
+    transition: none;
 }
 
-.place.road .photo-frame:hover img{
- transform:none;
+.place-visual:hover img {
+    transform: none;
 }
 
-.photo-placeholder{
- padding:30px;
- color:#167c77;
- text-align:center;
- font-weight:700;
+.place-badge {
+    position: absolute;
+    left: 20px;
+    bottom: 20px;
+    background: #fffffff0;
+    color: #087c70;
+    padding: 12px 17px;
+    border-radius: 9px;
+    font-size: 10px;
+    font-weight: 800;
 }
 
-.photo-number{
- position:absolute;
- bottom:-20px;
- right:23px;
- padding:14px 19px;
- border-radius:13px;
- background:linear-gradient(110deg,#00a878,#236ce7);
- color:white;
- font-size:11px;
- font-weight:700;
- box-shadow:0 12px 30px #126d9a35;
+.number {
+    font-family: var(--serif);
+    font-size: 100px;
+    color: #b9e9d8;
+    line-height: 1;
 }
 
-.place.reverse .photo-number{
- right:auto;
- left:23px;
+.place-content h3 {
+    font-family: var(--serif);
+    font-size: clamp(45px, 5vw, 75px);
+    line-height: 1.05;
+    margin: 20px 0;
 }
 
-.place-tag{
- display:inline-block;
- background:#e5fbf0;
- color:#087d63;
- padding:10px 15px;
- border-radius:9px;
- font-size:10px;
- font-weight:700;
- letter-spacing:1.5px;
+.place-line {
+    width: 100px;
+    height: 3px;
+    background: linear-gradient(90deg, var(--green), var(--blue));
+    margin: 27px 0;
 }
 
-.text-side h3{
- font-size:clamp(32px,3.8vw,53px);
- font-weight:800;
- line-height:1.3;
- letter-spacing:-1.4px;
- margin:22px 0 13px;
+.place-name {
+    font-size: 13px;
+    font-weight: 800;
+    color: #087f83;
 }
 
-.subtitle{
- font-size:15px;
- font-weight:700;
- color:var(--blue);
- margin-bottom:20px;
+.place-content p {
+    color: var(--muted);
+    font-size: 14px;
+    line-height: 2.2;
 }
 
-.description{
- font-size:14px;
- line-height:2.2;
- color:var(--muted);
+.caption-line {
+    margin-top: 25px;
+    padding: 16px 20px;
+    border-left: 4px solid var(--blue);
+    border-radius: 0 12px 12px 0;
+    background: linear-gradient(90deg, #e4f8ed, #e5f3ff);
+    color: #15768a;
+    font-family: var(--serif);
+    font-size: 24px;
+    font-style: italic;
 }
 
-.caption{
- margin-top:25px;
- padding:18px 20px;
- background:linear-gradient(110deg,#e4faef,#e8f2ff);
- border-left:4px solid #00aa84;
- border-radius:0 12px 12px 0;
- font-size:13px;
- line-height:1.9;
- font-weight:600;
- color:#176e79;
+.placeholder {
+    height: 100%;
+    display: grid;
+    place-items: center;
+    padding: 30px;
+    color: #137c79;
+    text-align: center;
+    font-size: 20px;
 }
 
-.place-link{
- display:inline-block;
- margin-top:25px;
- color:var(--blue);
- font-size:12px;
- font-weight:700;
+/* QUOTE */
+
+.quote {
+    padding: 110px 20px;
+    text-align: center;
+    color: white;
+    background: radial-gradient(circle at 80% 0%, #168f9a, #093e56 65%);
 }
 
-.distance{
- display:inline-block;
- margin-top:15px;
- background:#e5f5ff;
- color:#145cb5;
- padding:12px 17px;
- border-radius:10px;
- font-size:12px;
- font-weight:700;
+.quote h2 {
+    font-family: var(--serif);
+    font-size: clamp(40px, 5vw, 70px);
+    font-style: italic;
+    max-width: 950px;
+    margin: 25px auto;
 }
 
-/* MESSAGE */
+/* PHOTO GALLERY */
 
-.message{
- padding:115px 20px;
- text-align:center;
- background:linear-gradient(120deg,#075e62,#098a75,#205dc2);
- color:white;
+.gallery-section {
+    padding: 120px 0;
+    background: linear-gradient(135deg, #e9faef, #e8f5ff);
 }
 
-.message h2{
- max-width:900px;
- margin:20px auto;
- font-size:clamp(30px,4vw,55px);
- line-height:1.5;
- font-weight:700;
+.gallery-heading {
+    display: flex;
+    justify-content: space-between;
+    align-items: end;
+    gap: 30px;
+    margin-bottom: 50px;
 }
 
-.message p{
- font-size:11px;
- letter-spacing:2px;
- color:#d0ffec;
+.gallery-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
 }
 
-/* GALLERY */
-
-.gallery-section{
- padding:120px 0;
- background:linear-gradient(130deg,#effff7,#edf5ff);
+.photo-card {
+    position: relative;
+    display: block;
+    width: 100%;
+    height: 265px;
+    border: none;
+    padding: 0;
+    border-radius: 15px;
+    overflow: hidden;
+    background: linear-gradient(135deg, #b9ecd4, #b5dff6);
+    transition: box-shadow .3s ease;
 }
 
-.gallery-head{
- display:flex;
- justify-content:space-between;
- align-items:end;
- gap:35px;
- margin-bottom:48px;
+.photo-card img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain !important;
+    object-position: center !important;
 }
 
-.gallery-head p{
- max-width:340px;
- font-size:13px;
- line-height:2;
- color:var(--muted);
+.photo-card:hover {
+    box-shadow: 0 18px 40px #126b8730;
 }
 
-.gallery-grid{
- display:grid;
- grid-template-columns:repeat(3,minmax(0,1fr));
- grid-auto-rows:265px;
- gap:16px;
+.expand {
+    position: absolute;
+    top: 15px;
+    right: 15px;
+    background: #fffffff0;
+    padding: 7px 13px;
+    border-radius: 50%;
+    font-size: 22px;
+    color: var(--green);
 }
 
-.gallery-card{
- position:relative;
- padding:0;
- border:0;
- border-radius:17px;
- overflow:hidden;
- background:#c7eade;
+.gallery-action {
+    text-align: center;
+    margin-top: 45px;
 }
+
+/* FULLSCREEN LIGHTBOX */
 
-.gallery-card img{
- width:100%;
- height:100%;
- object-fit:cover;
- transition:transform .5s;
+.lightbox {
+    position: fixed;
+    inset: 0;
+    z-index: 200;
+    background: #051a23f5;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 60px;
 }
 
-.gallery-card:hover img{
- transform:scale(1.07);
+.lightbox.active {
+    display: flex;
 }
 
-.gallery-card span{
- position:absolute;
- top:15px;
- right:15px;
- background:white;
- color:#087a66;
- border-radius:50%;
- width:38px;
- height:38px;
- display:grid;
- place-items:center;
- font-size:20px;
- opacity:0;
- transition:.3s;
+.lightbox img {
+    max-width: 95vw;
+    max-height: 85vh;
+    width: auto;
+    height: auto;
+    object-fit: contain !important;
+    border-radius: 8px;
 }
 
-.gallery-card:hover span{opacity:1}
+.lightbox button {
+    position: absolute;
+    width: 45px;
+    height: 45px;
+    border: 1px solid #ffffff70;
+    border-radius: 50%;
+    background: #ffffff22;
+    color: white;
+    font-size: 25px;
+}
 
-.gallery-action{
- text-align:center;
- margin-top:50px;
+.lightbox-close {
+    top: 20px;
+    right: 20px;
 }
 
-.empty{
- grid-column:1/-1;
- text-align:center;
- padding:70px;
- color:var(--muted);
+.lightbox-prev {
+    left: 15px;
+    top: 50%;
 }
 
-.page-hero{
- padding:185px 0 100px;
- color:white;
- background:linear-gradient(120deg,#075a62,#0b8d83,#236ce7);
+.lightbox-next {
+    right: 15px;
+    top: 50%;
 }
 
-.page-hero h1{
- font-size:clamp(48px,7vw,86px);
- font-weight:800;
- letter-spacing:-2px;
+.lightbox-count {
+    position: absolute;
+    bottom: 18px;
+    color: white;
+    font-size: 12px;
 }
 
-.gallery-page{padding:90px 0 130px}
+/* CLOSING & FOOTER */
 
-.filters{
- display:flex;
- flex-wrap:wrap;
- gap:10px;
- margin-bottom:35px;
+.closing {
+    padding: 110px 0;
+    text-align: center;
 }
 
-.filter{
- padding:11px 17px;
- background:white;
- border:1px solid #cce8dd;
- border-radius:30px;
- font-size:11px;
- font-weight:600;
+.footer {
+    background: #073b49;
+    color: white;
+    padding: 75px 0 25px;
 }
 
-.filter.active{
- background:linear-gradient(110deg,#00a878,#236ce7);
- color:white;
- border-color:transparent;
+.footer-grid {
+    display: grid;
+    grid-template-columns: 1.5fr 1fr 1fr;
+    gap: 50px;
 }
 
-/* FOOTER */
-
-.footer{
- background:#102b40;
- color:white;
- padding:85px 0 30px;
+.footer h3 {
+    letter-spacing: 3px;
+    font-size: 26px;
 }
 
-.footer-grid{
- display:grid;
- grid-template-columns:1.5fr 1fr 1fr;
- gap:60px;
+.footer h4 {
+    color: #a9f1d6;
+    letter-spacing: 2px;
+    font-size: 12px;
 }
 
-.footer h3{
- font-size:27px;
- font-weight:800;
- letter-spacing:2px;
+.footer p, .footer a {
+    color: #c3e5e8;
+    font-size: 13px;
+    line-height: 2;
 }
 
-.footer h4{
- color:#91efd0;
- font-size:11px;
- letter-spacing:2px;
+.footer a {
+    display: block;
+    margin: 8px 0;
 }
 
-.footer p,.footer a{
- color:#b9d4dd;
- font-size:12px;
- line-height:2.1;
+.footer-bottom {
+    border-top: 1px solid #ffffff30;
+    margin-top: 55px;
+    padding-top: 25px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 20px;
+    color: #c3e5e8;
+    font-size: 11px;
 }
 
-.footer a{
- display:block;
- margin:9px 0;
+.developer {
+    display: flex;
+    align-items: center;
+    gap: 13px;
 }
 
-.footer-bottom{
- display:flex;
- justify-content:space-between;
- align-items:center;
- gap:25px;
- border-top:1px solid #ffffff25;
- margin-top:60px;
- padding-top:30px;
- font-size:11px;
- color:#b9d4dd;
+.developer img {
+    width: 55px;
+    height: 55px;
+    border-radius: 50%;
+    object-fit: contain;
+    border: 2px solid #a9f1d6;
 }
+
+/* ADMIN PANEL */
 
-.developer{
- display:flex;
- align-items:center;
- gap:12px;
+.admin-body {
+    min-height: 100vh;
+    background: linear-gradient(135deg, #075f52, #178c82, #1679bd);
+    padding: 70px 20px;
 }
 
-.developer img,.developer .avatar{
- width:55px;
- height:55px;
- border-radius:50%;
- object-fit:cover;
- border:2px solid #9ef2d4;
+.admin-box {
+    max-width: 1000px;
+    margin: auto;
+    background: white;
+    border-radius: 25px;
+    padding: 35px;
 }
 
-.developer small{
- display:block;
- font-size:9px;
+.admin-box.small {
+    max-width: 450px;
 }
 
-.developer strong{
- display:block;
- font-size:14px;
- color:white;
- margin-top:4px;
+.admin-box h1 {
+    color: #087f78;
 }
 
-/* FULLSCREEN GALLERY */
+.admin-box input,
+.admin-box select,
+.admin-box textarea {
+    display: block;
+    width: 100%;
+    padding: 13px;
+    border: 1px solid #bfe2da;
+    border-radius: 10px;
+    margin: 8px 0 20px;
+}
 
-.lightbox{
- display:none;
- position:fixed;
- inset:0;
- z-index:999;
- align-items:center;
- justify-content:center;
- padding:55px;
- background:#061725f7;
+.admin-box label {
+    display: block;
+    font-size: 13px;
+    font-weight: 700;
 }
 
-.lightbox.active{display:flex}
+.admin-box button {
+    border: none;
+    padding: 13px 22px;
+    background: linear-gradient(110deg, #168b70, #1679bd);
+    color: white;
+    border-radius: 10px;
+    font-weight: 700;
+}
 
-.lightbox img{
- max-width:90vw;
- max-height:85vh;
- width:auto;
- height:auto;
- object-fit:contain;
- border-radius:8px;
+.admin-photo {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    padding: 15px 0;
+    border-bottom: 1px solid #eee;
 }
 
-.lightbox button{
- position:absolute;
- width:45px;
- height:45px;
- border-radius:50%;
- border:1px solid #ffffff80;
- background:#ffffff25;
- color:white;
- font-size:27px;
+.admin-photo img {
+    width: 100px;
+    height: 85px;
+    object-fit: contain;
+    background: #e6f8ef;
 }
 
-.close-photo{top:22px;right:22px}
-.prev-photo{top:50%;left:18px}
-.next-photo{top:50%;right:18px}
+.admin-columns {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 35px;
+}
 
-.photo-count{
- position:absolute;
- bottom:20px;
- color:#d5e9ef;
- font-size:12px;
+.flash {
+    padding: 12px;
+    background: #e5f8ed;
+    border-radius: 8px;
+    margin: 15px 0;
 }
 
-/* ANIMATIONS */
+/* LEFT-RIGHT ANIMATIONS */
 
-@keyframes heroEnter{
- from{opacity:0;transform:scale(1.035)}
- to{opacity:1;transform:scale(1)}
+.reveal {
+    opacity: 0;
+    transform: translateY(35px);
+    transition:
+        opacity .9s ease,
+        transform 1s cubic-bezier(.2,.75,.25,1);
 }
 
-@keyframes fadeUp{
- from{opacity:0;transform:translateY(38px)}
- to{opacity:1;transform:translateY(0)}
+.place:not(.reverse) .place-visual.reveal {
+    transform: translateX(-85px);
 }
 
-@keyframes bounce{
- 0%,100%{transform:translateY(0)}
- 50%{transform:translateY(9px)}
+.place.reverse .place-visual.reveal {
+    transform: translateX(85px);
 }
 
-.reveal{
- opacity:0;
- transform:translateY(42px);
- transition:opacity .85s ease,transform .85s ease;
+.place:not(.reverse) .place-content.reveal {
+    transform: translateX(65px);
 }
 
-.reveal.visible{
- opacity:1;
- transform:translateY(0);
+.place.reverse .place-content.reveal {
+    transform: translateX(-65px);
 }
-
-/* ADMIN */
 
-.admin-body{
- min-height:100vh;
- padding:60px 20px;
- background:linear-gradient(120deg,#e2fff0,#e8f3ff);
+.reveal.visible,
+.place .reveal.visible {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
 }
 
-.admin-panel{
- max-width:1000px;
- margin:auto;
- padding:40px;
- background:white;
- border-radius:24px;
- box-shadow:0 24px 65px #086d8a25;
-}
+/* RESPONSIVE DESIGN */
 
-.admin-panel.small{max-width:460px}
+@media(max-width: 850px) {
+    .nav-links {
+        display: none;
+        position: absolute;
+        top: 75px;
+        left: 20px;
+        right: 20px;
+        background: #074454;
+        padding: 22px;
+        border-radius: 15px;
+        flex-direction: column;
+        align-items: flex-start;
+    }
 
-.admin-panel h1{
- font-size:35px;
- font-weight:800;
-}
+    .nav-links.open {
+        display: flex;
+    }
 
-.admin-panel label{
- display:block;
- margin:18px 0;
- font-size:12px;
- font-weight:700;
-}
+    .menu-btn {
+        display: block;
+    }
 
-.admin-panel input,
-.admin-panel textarea,
-.admin-panel select{
- display:block;
- width:100%;
- margin-top:9px;
- padding:13px;
- border:1px solid #c9e3dc;
- border-radius:9px;
-}
+    .hero {
+        min-height: 650px;
+    }
 
-.admin-panel textarea{min-height:95px}
+    .hero h1 {
+        font-size: 82px;
+    }
 
-.admin-panel button{
- background:linear-gradient(110deg,#00a878,#236ce7);
- border:0;
- border-radius:9px;
- padding:13px 20px;
- color:white;
-}
+    .intro-grid,
+    .place,
+    .place.reverse,
+    .footer-grid,
+    .admin-columns {
+        grid-template-columns: 1fr;
+    }
 
-.admin-columns{
- display:grid;
- grid-template-columns:1fr 1fr;
- gap:40px;
-}
+    .place.reverse .place-visual {
+        order: 0;
+    }
 
-.admin-photo{
- display:flex;
- align-items:center;
- gap:15px;
- padding:15px 0;
- border-bottom:1px solid #e7efeb;
-}
+    .place {
+        gap: 30px;
+        margin-bottom: 95px;
+    }
 
-.admin-photo img{
- width:85px;
- height:65px;
- object-fit:cover;
- border-radius:8px;
-}
+    .place-visual {
+        height: 420px;
+        border-radius: 20px 80px 20px 20px;
+    }
+
+    .place.reverse .place-visual {
+        border-radius: 80px 20px 20px 20px;
+    }
+
+    .intro {
+        padding: 90px 0;
+    }
 
-.admin-photo div{flex:1}
+    .intro-image {
+        height: 390px;
+        min-height: 390px;
+    }
 
-.flash{
- padding:14px;
- margin:15px 0;
- background:#e1f9ec;
- color:#08705b;
- border-radius:9px;
+    .gallery-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .gallery-heading {
+        display: block;
+    }
+
+    .footer-bottom {
+        flex-direction: column;
+        align-items: flex-start;
+    }
 }
 
-/* RESPONSIVE */
+@media(max-width: 520px) {
+    .container {
+        width: calc(100% - 30px);
+    }
 
-@media(max-width:1050px){
- .container{width:calc(100% - 44px)}
+    .hero h1 {
+        font-size: 68px;
+    }
 
- .nav-links{
-  display:none;
-  position:absolute;
-  top:78px;
-  left:20px;
-  right:20px;
-  background:#103a4c;
-  border-radius:14px;
-  padding:22px;
-  flex-direction:column;
-  align-items:stretch;
- }
+    .hero p {
+        font-size: 13px;
+    }
 
- .nav-links.open{display:flex}
- .menu{display:block}
+    .place-visual {
+        height: 310px;
+    }
 
- .intro-grid{
-  grid-template-columns:1fr;
-  gap:45px;
- }
+    .place-content h3 {
+        font-size: 47px;
+    }
 
- .place,.place.reverse{
-  grid-template-columns:1fr;
-  gap:45px;
-  margin-bottom:105px;
- }
+    .gallery-grid {
+        grid-template-columns: 1fr;
+    }
 
- .place.reverse .photo-side,
- .place.reverse .text-side{
-  order:initial;
- }
+    .photo-card {
+        height: 285px;
+    }
 
- .photo-frame{height:430px}
+    .lightbox {
+        padding: 12px;
+    }
 
- .footer-grid{grid-template-columns:1fr 1fr}
- .footer-grid>div:first-child{grid-column:span 2}
-}
+    .lightbox img {
+        max-width: 96vw;
+        max-height: 78vh;
+    }
+
+    .place:not(.reverse) .place-visual.reveal,
+    .place.reverse .place-visual.reveal,
+    .place:not(.reverse) .place-content.reveal,
+    .place.reverse .place-content.reveal {
+        transform: translateY(30px);
+    }
 
-@media(max-width:600px){
- .container{width:calc(100% - 32px)}
- .brand{font-size:19px}
- .creator small,.creator strong{display:none}
- .hero{min-height:670px}
- .hero h1{font-size:52px;letter-spacing:-2px}
- .hero p{font-size:13px}
- .intro{padding:90px 0}
- .intro-photo{height:330px}
- .heading{font-size:38px}
- .places{padding-top:65px}
- .places-header{margin-bottom:65px}
- .photo-frame{height:330px;padding:8px}
- .photo-inner{border-radius:16px}
- .text-side h3{font-size:34px}
- .gallery-head{display:block}
- .gallery-grid{
-  grid-template-columns:repeat(2,minmax(0,1fr));
-  grid-auto-rows:180px;
-  gap:9px;
- }
- .gallery-section{padding:90px 0}
- .footer-grid{grid-template-columns:1fr}
- .footer-grid>div:first-child{grid-column:auto}
- .footer-bottom{flex-direction:column;align-items:flex-start}
- .lightbox{padding:45px 10px}
- .prev-photo{left:5px}
- .next-photo{right:5px}
- .admin-columns{grid-template-columns:1fr}
- .admin-panel{padding:25px}
+    .place .reveal.visible {
+        transform: translate3d(0,0,0);
+    }
 }
 
-@media(prefers-reduced-motion:reduce){
- *,*:before,*:after{
-  animation:none!important;
-  transition:none!important;
-  scroll-behavior:auto!important;
- }
- .reveal{opacity:1;transform:none}
+@media(prefers-reduced-motion: reduce) {
+    .reveal,
+    .place .reveal {
+        opacity: 1;
+        transform: none !important;
+        transition: none;
+    }
 }
 """
 
 # ============================================================
-# MAIN WEBSITE HTML
+# BASE HTML
 # ============================================================
 
-HTML = """
+BASE_HTML = r"""
 <!DOCTYPE html>
-<html lang="{{ lang }}">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="theme-color" content="#102b40">
-<meta name="author" content="Vaibhav Bhatia">
-<meta name="description" content="Discover Pabiana Village, District Sirmaur, Himachal Pradesh. Explore mountains, schools, temples, Gram Panchayat Ser Jagas and the scenic road to Solan.">
-<title>{{ 'Photo Gallery' if page=='gallery' else 'Pabiana Village' }} | Himachal Pradesh</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<title>{{ page_title }}</title>
+
+<meta name="description"
+content="Discover Pabiana Village in Sirmaur, Himachal Pradesh. Explore beautiful mountains, schools, temples, local culture and village photography.">
+
+<meta name="robots" content="index, follow">
+<meta name="theme-color" content="#075f52">
+
 <style>{{ css|safe }}</style>
 </head>
+
 <body>
 
-<header class="navbar" id="navbar">
- <div class="container nav-inner">
-
-  <a href="/" class="brand">
-   PABIANA<span>.</span>
-   <small>THE HIMALAYAN EXPERIENCE</small>
-  </a>
-
-  <nav class="nav-links" id="navLinks">
-   <a href="/">HOME</a>
-   <a href="/#about">ABOUT</a>
-   <a href="/#places">EXPLORE</a>
-   <a href="/gallery">GALLERY</a>
-   <a href="{{ url_for('change_language',code='hi' if lang=='en' else 'en',next=request.path) }}">
-    {{ 'हिंदी' if lang=='en' else 'ENGLISH' }}
-   </a>
-  </nav>
-
-  <div class="creator">
-   {% if portrait %}
-    <img src="{{ portrait }}" alt="Vaibhav Bhatia">
-   {% else %}
-    <div class="avatar">V</div>
-   {% endif %}
-   <div>
-    <small>CREATED BY</small>
-    <strong>Vaibhav Bhatia</strong>
-   </div>
-  </div>
-
-  <button class="menu" id="menuBtn" aria-label="Open menu">
-   ☰
-  </button>
-
- </div>
-</header>
-
-{% if page=='home' %}
-
-<!-- FIRST SCREEN: PABIANA.PNG -->
-
-<section class="hero">
-
- {% if hero %}
-  <img class="hero-photo"
-       src="{{ hero }}"
-       alt="Pabiana Village"
-       fetchpriority="high">
- {% else %}
-  <div class="hero-fallback"></div>
- {% endif %}
-
- <div class="hero-shade"></div>
-
- <div class="container hero-content">
-
-  <div class="hero-tag">
-   ✦ SIRMAUR · HIMACHAL PRADESH · INDIA
-  </div>
-
-  {% if lang=='en' %}
-
-   <h1>
-    Welcome to<br>
-    <span>Pabiana Village.</span>
-   </h1>
-
-   <p>
-    A beautiful Himalayan village surrounded by
-    green mountains, peaceful valleys and
-    timeless traditions. Discover the place
-    we proudly call home.
-   </p>
-
-  {% else %}
-
-   <h1>
-    स्वागत है<br>
-    <span>पबियाना गाँव में।</span>
-   </h1>
-
-   <p>
-    हरे-भरे पहाड़ों, शांत घाटियों और हिमाचल
-    प्रदेश की प्राकृतिक सुंदरता से घिरा
-    हमारा प्यारा गाँव।
-   </p>
-
-  {% endif %}
-
-  <div class="hero-buttons">
-   <a href="#places" class="btn btn-white">
-    EXPLORE PABIANA ↗
-   </a>
-
-   <a href="/gallery" class="btn btn-glass">
-    VIEW ALL PHOTOS ↗
-   </a>
-  </div>
-
- </div>
-
- <div class="scroll-note">
-  SCROLL TO EXPLORE
-  <span>↓</span>
- </div>
-
-</section>
-
-<!-- INTRODUCTION -->
-
-<section class="intro" id="about">
- <div class="container intro-grid">
-
-  <div class="reveal">
-
-   <div class="kicker">WELCOME TO OUR HOME</div>
-
-   <h2 class="heading">
-    {% if lang=='en' %}
-     A beautiful village.<br>
-     <span class="gradient">A special feeling.</span>
-    {% else %}
-     हमारा खूबसूरत गाँव।<br>
-     <span class="gradient">हमारी खास पहचान।</span>
-    {% endif %}
-   </h2>
-
-   <p>
-    {% if lang=='en' %}
-     Pabiana is a beautiful village in District
-     Sirmaur, Himachal Pradesh. From peaceful
-     mountain views to its schools, temples and
-     community life, every corner has a story.
-    {% else %}
-     पबियाना हिमाचल प्रदेश के जिला सिरमौर में
-     स्थित एक खूबसूरत गाँव है। यहाँ के पहाड़,
-     विद्यालय, मंदिर और सामुदायिक जीवन
-     इसकी विशेष पहचान हैं।
-    {% endif %}
-   </p>
-
-   <div class="intro-pill">
-    ✦ PROUDLY PABIANA · PROUDLY HIMACHALI
-   </div>
-
-  </div>
-
-  <div class="intro-photo reveal">
-   {% if intro %}
-    <img src="{{ intro }}"
-         alt="Pabiana mountain view"
-         loading="lazy">
-   {% endif %}
-  </div>
-
- </div>
-</section>
-
-<!-- LEFT RIGHT PHOTO SECTIONS -->
-
-<section class="places" id="places">
- <div class="container">
-
-  <div class="places-header reveal">
-   <div class="kicker">
-    DISCOVER OUR BEAUTIFUL VILLAGE
-   </div>
-
-   <h2 class="heading">
-    Places that make<br>
-    <span class="gradient">Pabiana special.</span>
-   </h2>
-  </div>
-
-  {% for section in sections %}
-
-   <article
-    id="{{ section.id }}"
-    class="place {% if loop.index is even %}reverse{% endif %} {% if section.id=='road' %}road{% endif %}"
-   >
-
-    <div class="photo-side reveal">
-
-     <div class="photo-frame">
-      <div class="photo-inner">
-
-       {% if section.photo %}
-        <img src="{{ section.photo }}"
-             alt="{{ section.title }}"
-             loading="lazy">
-       {% else %}
-        <div class="photo-placeholder">
-         {{ section.title }}
-         <p>Photo will appear here when added.</p>
-        </div>
-       {% endif %}
-
-      </div>
-
-      <div class="photo-number">
-       {{ '%02d'|format(loop.index) }} / PABIANA
-      </div>
-     </div>
-
-    </div>
-
-    <div class="text-side reveal">
-
-     <div class="place-tag">
-      {{ section.tag }}
-     </div>
-
-     <h3>
-      {{ section.title if lang=='en' else section.hi }}
-     </h3>
-
-     <div class="subtitle">
-      {{ section.subtitle if lang=='en' else section.subtitle_hi }}
-     </div>
-
-     <p class="description">
-      {{ section.description if lang=='en' else section.description_hi }}
-     </p>
-
-     {% if section.id=='road' %}
-      <div class="distance">
-       📍 SOLAN — APPROX. 32 KM
-      </div>
-     {% endif %}
-
-     <div class="caption">
-      ✦ {{ section.caption if lang=='en' else section.caption_hi }}
-     </div>
-
-     <a href="/gallery?category={{ section.id }}"
-        class="place-link">
-      VIEW PHOTOGRAPHS ↗
-     </a>
-
-    </div>
-
-   </article>
-
-  {% endfor %}
-
- </div>
-</section>
-
-<!-- MESSAGE -->
-
-<section class="message">
- <div class="container reveal">
-
-  <p>THE SPIRIT OF PABIANA</p>
-
-  <h2>
-   Some places are more than destinations.
-   They are memories, belonging and home.
-  </h2>
-
-  <p>✦ PABIANA · HIMACHAL PRADESH ✦</p>
-
- </div>
-</section>
-
-<!-- GALLERY PREVIEW -->
-
-<section class="gallery-section">
- <div class="container">
-
-  <div class="gallery-head reveal">
-
-   <div>
-    <div class="kicker">OUR PHOTO COLLECTION</div>
-
-    <h2 class="heading">
-     Every photograph<br>
-     <span class="gradient">tells a story.</span>
-    </h2>
-   </div>
-
-   <p>
-    Discover the mountains, schools, temples,
-    panchayat, resort and scenic road of Pabiana.
-   </p>
-
-  </div>
-
-  <div class="gallery-grid">
-
-   {% for photo in photos[:9] %}
-
-    <button class="gallery-card js-photo"
-            data-src="{{ photo.url }}"
-            aria-label="Open photograph">
-
-     <img src="{{ photo.url }}"
-          alt="Pabiana Village photograph"
-          loading="lazy">
-
-     <span>↗</span>
-
-    </button>
-
-   {% else %}
-
-    <div class="empty">
-     Add photographs to the static folder.
-    </div>
-
-   {% endfor %}
-
-  </div>
-
-  <div class="gallery-action">
-   <a href="/gallery" class="btn btn-primary">
-    VIEW ALL PHOTOS ↗
-   </a>
-  </div>
-
- </div>
-</section>
-
-{% else %}
-
-<!-- FULL GALLERY PAGE -->
-
-<section class="page-hero">
- <div class="container">
-
-  <div class="hero-tag">
-   PABIANA PHOTO COLLECTION
-  </div>
-
-  <h1>Our Beautiful Moments.</h1>
-
-  <p>Explore Pabiana through photographs.</p>
-
- </div>
-</section>
-
-<section class="gallery-page">
- <div class="container">
-
-  <div class="filters">
-
-   <a href="/gallery"
-      class="filter {% if not selected %}active{% endif %}">
-    All Photos
-   </a>
-
-   {% for section in sections %}
-
-    <a href="/gallery?category={{ section.id }}"
-       class="filter {% if selected==section.id %}active{% endif %}">
-     {{ section.title }}
-    </a>
-
-   {% endfor %}
-
-   <a href="/gallery?category=other"
-      class="filter {% if selected=='other' %}active{% endif %}">
-    Other
-   </a>
-
-  </div>
-
-  <div class="gallery-grid">
-
-   {% for photo in photos %}
-
-    <button class="gallery-card js-photo"
-            data-src="{{ photo.url }}"
-            aria-label="Open photograph">
-
-     <img src="{{ photo.url }}"
-          alt="Pabiana photograph"
-          loading="lazy">
-
-     <span>↗</span>
-
-    </button>
-
-   {% else %}
-
-    <div class="empty">
-     No photos found in this category.
-    </div>
-
-   {% endfor %}
-
-  </div>
-
-  <div class="gallery-action">
-   <a href="/" class="btn btn-primary">
-    ← BACK TO HOME
-   </a>
-  </div>
-
- </div>
-</section>
-
-{% endif %}
-
-<!-- FOOTER -->
-
-<footer class="footer">
- <div class="container">
-
-  <div class="footer-grid">
-
-   <div>
-    <h3>PABIANA.</h3>
-
-    <p>
-     A digital celebration of our village,
-     our culture, our community and
-     the beautiful Himalayan landscape.
-    </p>
-   </div>
-
-   <div>
-    <h4>EXPLORE</h4>
-    <a href="/">Home</a>
-    <a href="/#about">About</a>
-    <a href="/#places">Explore</a>
-    <a href="/gallery">Gallery</a>
-   </div>
-
-   <div>
-    <h4>LOCATION</h4>
-
-    <p>
-     Pabiana Village<br>
-     District Sirmaur<br>
-     Himachal Pradesh<br>
-     India
-    </p>
-   </div>
-
-  </div>
-
-  <div class="footer-bottom">
-
-   <div>
-    © {{ year }} Pabiana Village.
-    All rights reserved.
-   </div>
-
-   <div class="developer">
-
-    {% if portrait %}
-     <img src="{{ portrait }}"
-          alt="Vaibhav Bhatia">
-    {% else %}
-     <div class="avatar">V</div>
-    {% endif %}
-
-    <div>
-     <small>CREATED & DEVELOPED BY</small>
-     <strong>Vaibhav Bhatia</strong>
-    </div>
-
-   </div>
-
-  </div>
-
- </div>
-</footer>
-
-<!-- FULLSCREEN PHOTO VIEWER -->
-
-<div class="lightbox"
-     id="lightbox"
-     role="dialog"
-     aria-modal="true"
-     aria-label="Photo viewer">
-
- <button class="close-photo"
-         id="closePhoto"
-         aria-label="Close">×</button>
-
- <button class="prev-photo"
-         id="prevPhoto"
-         aria-label="Previous">‹</button>
-
- <img id="largePhoto" alt="Pabiana photograph">
-
- <div class="photo-count" id="photoCount"></div>
-
- <button class="next-photo"
-         id="nextPhoto"
-         aria-label="Next">›</button>
+<nav class="navbar" id="navbar">
+<div class="container nav-inner">
+
+<a href="/" class="brand">
+PABIANA
+<small>THE VILLAGE EXPERIENCE</small>
+</a>
+
+<button class="menu-btn" onclick="toggleMenu()">☰</button>
+
+<div class="nav-links" id="navLinks">
+<a href="/">HOME</a>
+<a href="/#about">OUR STORY</a>
+<a href="/#explore">EXPLORE</a>
+<a href="/gallery">PHOTO GALLERY</a>
+<a href="/#contact">CONTACT</a>
+
+<button class="lang-btn" onclick="toggleLanguage()">
+EN / हिंदी
+</button>
+</div>
+
+</div>
+</nav>
+
+{% block content %}{% endblock %}
+
+<footer class="footer" id="contact">
+<div class="container">
+
+<div class="footer-grid">
+
+<div>
+<h3>PABIANA</h3>
+<p>
+A digital celebration of our village, our mountains,
+our culture and our beautiful home.
+</p>
+</div>
+
+<div>
+<h4>EXPLORE</h4>
+<a href="/">Home</a>
+<a href="/#explore">Village Places</a>
+<a href="/gallery">Photo Gallery</a>
+</div>
+
+<div>
+<h4>LOCATION</h4>
+<p>
+Village Pabiana<br>
+District Sirmaur<br>
+Himachal Pradesh, India
+</p>
+</div>
 
 </div>
 
+<div class="footer-bottom">
+<span>© {{ year }} Pabiana Village. All rights reserved.</span>
+
+<div class="developer">
+{% if developer_photo %}
+<img src="{{ developer_photo }}" alt="Developer">
+{% endif %}
+<div>
+<small>DESIGNED & DEVELOPED BY</small>
+<strong>VAIBHAV BHATIA</strong>
+</div>
+</div>
+
+</div>
+</div>
+</footer>
+
+<div class="lightbox" id="lightbox">
+<button class="lightbox-close" onclick="closeLightbox()">×</button>
+<button class="lightbox-prev" onclick="changePhoto(-1)">‹</button>
+<img id="lightboxImage" alt="Full photograph">
+<button class="lightbox-next" onclick="changePhoto(1)">›</button>
+<div class="lightbox-count" id="lightboxCount"></div>
+</div>
+
 <script>
-(function(){
+let currentPhoto = 0;
+let photoSources = [];
+let hindi = false;
 
- const navbar=document.getElementById("navbar");
- const menu=document.getElementById("menuBtn");
- const links=document.getElementById("navLinks");
+function setupGallery() {
+    const photos = document.querySelectorAll(".js-photo");
 
- function updateNav(){
-  navbar.classList.toggle("sticky",window.scrollY>25);
- }
+    photoSources = Array.from(photos).map(
+        photo => photo.dataset.src
+    );
 
- updateNav();
-
- window.addEventListener(
-  "scroll",updateNav,{passive:true}
- );
-
- menu.addEventListener("click",()=>{
-  links.classList.toggle("open");
- });
-
- links.querySelectorAll("a").forEach(link=>{
-  link.addEventListener("click",()=>{
-   links.classList.remove("open");
-  });
- });
-
- // SMOOTH SCROLL ANIMATIONS
-
- const revealItems=document.querySelectorAll(".reveal");
-
- if("IntersectionObserver" in window){
-
-  const observer=new IntersectionObserver(
-   entries=>{
-    entries.forEach(entry=>{
-     if(entry.isIntersecting){
-      entry.target.classList.add("visible");
-      observer.unobserve(entry.target);
-     }
+    photos.forEach((photo, index) => {
+        photo.addEventListener("click", () => {
+            openLightbox(index);
+        });
     });
-   },
-   {threshold:0.08,rootMargin:"0px 0px 35px 0px"}
-  );
+}
 
-  revealItems.forEach(item=>observer.observe(item));
+function openLightbox(index) {
+    if (!photoSources.length) return;
 
- }else{
-  revealItems.forEach(item=>{
-   item.classList.add("visible");
-  });
- }
+    currentPhoto = index;
 
- // FULLSCREEN PHOTO GALLERY
+    document.getElementById("lightbox").classList.add("active");
+    document.body.classList.add("lock");
 
- const photos=[...document.querySelectorAll(".js-photo")];
- const lightbox=document.getElementById("lightbox");
- const large=document.getElementById("largePhoto");
- const count=document.getElementById("photoCount");
+    updateLightbox();
+}
 
- let current=0;
- let lastFocus=null;
+function updateLightbox() {
+    document.getElementById("lightboxImage").src =
+        photoSources[currentPhoto];
 
- function showPhoto(index){
-  if(!photos.length)return;
+    document.getElementById("lightboxCount").textContent =
+        (currentPhoto + 1) + " / " + photoSources.length;
+}
 
-  current=(index+photos.length)%photos.length;
+function changePhoto(direction) {
+    if (!photoSources.length) return;
 
-  large.src=photos[current].dataset.src;
+    currentPhoto =
+        (currentPhoto + direction + photoSources.length)
+        % photoSources.length;
 
-  count.textContent=(current+1)+" / "+photos.length;
+    updateLightbox();
+}
 
-  lightbox.classList.add("active");
-  document.body.classList.add("lock");
+function closeLightbox() {
+    document.getElementById("lightbox").classList.remove("active");
+    document.body.classList.remove("lock");
+}
 
-  document.getElementById("closePhoto").focus();
- }
+document.addEventListener("keydown", event => {
+    if (event.key === "Escape") {
+        closeLightbox();
+    }
 
- function closePhoto(){
-  lightbox.classList.remove("active");
-  document.body.classList.remove("lock");
-  large.removeAttribute("src");
+    const isOpen = document.getElementById("lightbox")
+        .classList.contains("active");
 
-  if(lastFocus)lastFocus.focus();
- }
+    if (isOpen && event.key === "ArrowRight") {
+        changePhoto(1);
+    }
 
- photos.forEach((photo,index)=>{
-  photo.addEventListener("click",()=>{
-   lastFocus=photo;
-   showPhoto(index);
-  });
- });
+    if (isOpen && event.key === "ArrowLeft") {
+        changePhoto(-1);
+    }
+});
 
- document.getElementById("closePhoto").onclick=closePhoto;
+function toggleMenu() {
+    document.getElementById("navLinks").classList.toggle("open");
+}
 
- document.getElementById("prevPhoto").onclick=()=>{
-  showPhoto(current-1);
- };
+function toggleLanguage() {
+    hindi = !hindi;
 
- document.getElementById("nextPhoto").onclick=()=>{
-  showPhoto(current+1);
- };
+    document.querySelectorAll("[data-en]").forEach(element => {
+        const text = hindi
+            ? element.dataset.hi
+            : element.dataset.en;
 
- lightbox.addEventListener("click",event=>{
-  if(event.target===lightbox)closePhoto();
- });
+        if (text) {
+            element.textContent = text;
+        }
+    });
 
- document.addEventListener("keydown",event=>{
-  if(!lightbox.classList.contains("active"))return;
+    document.documentElement.lang = hindi ? "hi" : "en";
+}
 
-  if(event.key==="Escape")closePhoto();
-  if(event.key==="ArrowLeft")showPhoto(current-1);
-  if(event.key==="ArrowRight")showPhoto(current+1);
- });
+window.addEventListener("scroll", () => {
+    document.getElementById("navbar").classList.toggle(
+        "sticky",
+        window.scrollY > 70
+    );
+});
 
- let touchStart=0;
+document.addEventListener("DOMContentLoaded", () => {
+    setupGallery();
 
- lightbox.addEventListener("touchstart",event=>{
-  touchStart=event.changedTouches[0].screenX;
- },{passive:true});
+    const observer = new IntersectionObserver(entries => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                entry.target.classList.add("visible");
+                observer.unobserve(entry.target);
+            }
+        });
+    }, {
+        threshold: .08
+    });
 
- lightbox.addEventListener("touchend",event=>{
-  const delta=event.changedTouches[0].screenX-touchStart;
-
-  if(Math.abs(delta)>60){
-   showPhoto(current+(delta<0?1:-1));
-  }
- },{passive:true});
-
-})();
+    document.querySelectorAll(".reveal").forEach(element => {
+        observer.observe(element);
+    });
+});
 </script>
 
 </body>
@@ -2015,171 +1466,504 @@ HTML = """
 """
 
 # ============================================================
-# ADMIN HTML
+# HOME PAGE
 # ============================================================
 
-ADMIN_HTML = """
+HOME_HTML = r"""
+{% extends "base.html" %}
+{% block content %}
+
+<section class="hero">
+
+{% if hero %}
+<img class="hero-photo"
+src="{{ hero }}"
+alt="Pabiana Village">
+{% endif %}
+
+<div class="hero-shade"></div>
+
+<div class="container hero-content">
+
+<div class="eyebrow">
+WELCOME TO THE HEART OF HIMACHAL
+</div>
+
+<h1>
+Pabiana
+<em>Village.</em>
+</h1>
+
+<p>
+A place where mountains embrace the sky,
+traditions live in every home, and every road
+tells a beautiful story.
+</p>
+
+<div class="actions">
+<a href="#explore" class="btn btn-gold">
+EXPLORE OUR VILLAGE ↗
+</a>
+
+<a href="/gallery" class="btn btn-outline">
+VIEW PHOTOS ↗
+</a>
+</div>
+
+</div>
+</section>
+
+<section class="intro" id="about">
+<div class="container intro-grid">
+
+<div class="intro-image reveal">
+{% if intro %}
+<img src="{{ intro }}"
+alt="Beautiful mountain landscape">
+{% endif %}
+</div>
+
+<div class="reveal">
+
+<div class="label">WELCOME TO OUR WORLD</div>
+
+<h2 class="title">
+A little village.<br>
+<em>A beautiful story.</em>
+</h2>
+
+<p class="copy">
+Nestled among the beautiful hills of Himachal Pradesh,
+Pabiana is a village surrounded by natural charm,
+peaceful landscapes and a strong sense of community.
+</p>
+
+<p class="copy">
+Discover the places, traditions, educational institutions
+and scenic beauty that make our village special.
+</p>
+
+<a href="#explore" class="btn btn-dark">
+DISCOVER MORE ↗
+</a>
+
+</div>
+</div>
+</section>
+
+<section class="places" id="explore">
+<div class="container">
+
+<div class="places-heading reveal">
+<div class="label">EXPLORE OUR VILLAGE</div>
+
+<h2 class="title">
+Places that make<br>
+<em>Pabiana beautiful.</em>
+</h2>
+
+<p class="copy">
+A journey through mountains, education, faith,
+community and the roads that connect us.
+</p>
+</div>
+
+{% for section in sections %}
+
+<article class="place {% if loop.index is even %}reverse{% endif %}">
+
+<div class="place-visual reveal">
+
+{% if section.url %}
+<img src="{{ section.url }}"
+alt="{{ section.name }}"
+loading="lazy">
+{% else %}
+<div class="placeholder">
+{{ section.name }}
+</div>
+{% endif %}
+
+<div class="place-badge">{{ section.tag }}</div>
+
+</div>
+
+<div class="place-content reveal">
+
+<div class="number">
+{{ "%02d"|format(loop.index) }}
+</div>
+
+<h3
+data-en="{{ section.title }}"
+data-hi="{{ section.title_hi }}">
+{{ section.title }}
+</h3>
+
+<div class="place-line"></div>
+
+<div class="place-name"
+data-en="{{ section.name }}"
+data-hi="{{ section.name_hi }}">
+{{ section.name }}
+</div>
+
+<p
+data-en="{{ section.description }}"
+data-hi="{{ section.description_hi }}">
+{{ section.description }}
+</p>
+
+<div class="caption-line">
+{{ section.caption }}
+</div>
+
+<a class="btn btn-dark"
+href="/gallery"
+style="margin-top:25px">
+EXPLORE PHOTOS ↗
+</a>
+
+</div>
+</article>
+
+{% endfor %}
+
+</div>
+</section>
+
+<section class="quote">
+<div class="label" style="color:#b8f4dc">
+THE SPIRIT OF PABIANA
+</div>
+
+<h2>
+"Some places are not just locations.
+They are memories, emotions and home."
+</h2>
+</section>
+
+<section class="gallery-section">
+<div class="container">
+
+<div class="gallery-heading reveal">
+<div>
+
+<div class="label">
+OUR ORIGINAL PHOTO COLLECTION
+</div>
+
+<h2 class="title">
+Every photograph<br>
+<em>tells a story.</em>
+</h2>
+
+</div>
+
+<p class="copy">
+Explore the beautiful mountains, schools,
+temples, village roads and unforgettable views.
+</p>
+
+</div>
+
+<div class="gallery-grid">
+
+{% for photo in photos[:9] %}
+
+<button class="photo-card js-photo"
+data-src="{{ photo.url }}"
+aria-label="Open {{ photo.title }}">
+
+<img src="{{ photo.url }}"
+alt="{{ photo.title }}"
+loading="lazy">
+
+<span class="expand">↗</span>
+
+</button>
+
+{% else %}
+<p>No photos uploaded yet.</p>
+{% endfor %}
+
+</div>
+
+<div class="gallery-action">
+<a href="/gallery" class="btn btn-dark">
+VIEW ALL PHOTOS ↗
+</a>
+</div>
+
+</div>
+</section>
+
+<section class="closing">
+<div class="container">
+
+<div class="label">
+OUR HOME · OUR PRIDE
+</div>
+
+<h2 class="title">
+Come for the views.<br>
+<em>Stay for the memories.</em>
+</h2>
+
+<p class="copy">
+Pabiana Village · Sirmaur · Himachal Pradesh
+</p>
+
+<a href="/gallery" class="btn btn-dark">
+DISCOVER OUR GALLERY ↗
+</a>
+
+</div>
+</section>
+
+{% endblock %}
+"""
+
+# ============================================================
+# GALLERY PAGE
+# ============================================================
+
+GALLERY_HTML = r"""
+{% extends "base.html" %}
+{% block content %}
+
+<section class="gallery-section"
+style="padding-top:160px;min-height:80vh">
+
+<div class="container">
+
+<div class="label">
+PABIANA PHOTO COLLECTION
+</div>
+
+<h1 class="title">
+Our Village.<br>
+<em>Our Memories.</em>
+</h1>
+
+<p class="copy">
+Explore all photographs of our beautiful village.
+Click any photo to view it in full size.
+</p>
+
+<div class="gallery-grid" style="margin-top:55px">
+
+{% for photo in photos %}
+
+<button class="photo-card js-photo"
+data-src="{{ photo.url }}"
+aria-label="View {{ photo.title }}">
+
+<img src="{{ photo.url }}"
+alt="{{ photo.title }}"
+loading="lazy">
+
+<span class="expand">↗</span>
+
+</button>
+
+{% else %}
+<p>Photos will appear here when uploaded.</p>
+{% endfor %}
+
+</div>
+
+<div style="text-align:center;margin-top:50px">
+<a href="/" class="btn btn-dark">
+← BACK TO HOME
+</a>
+</div>
+
+</div>
+</section>
+
+{% endblock %}
+"""
+
+# ============================================================
+# ADMIN PANEL HTML
+# ============================================================
+
+ADMIN_HTML = r"""
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Pabiana Admin Studio</title>
+<title>Pabiana Admin</title>
 <style>{{ css|safe }}</style>
 </head>
+
 <body>
 
 <div class="admin-body">
- <div class="admin-panel {% if login %}small{% endif %}">
 
-  <a href="/">← Back to Website</a>
+<div class="admin-box {% if login %}small{% endif %}">
 
-  <h1>
-   {{ 'Admin Login' if login else 'Pabiana Photo Studio' }}
-  </h1>
+<a href="/">← Back to Website</a>
 
-  {% for message in get_flashed_messages() %}
-   <div class="flash">{{ message }}</div>
-  {% endfor %}
+<h1>
+{% if login %}
+Admin Login
+{% else %}
+Pabiana Photo Studio
+{% endif %}
+</h1>
 
-  {% if login %}
+{% for message in get_flashed_messages() %}
+<div class="flash">{{ message }}</div>
+{% endfor %}
 
-   <form method="POST">
+{% if login %}
 
-    <input type="hidden"
-           name="csrf"
-           value="{{ csrf_token() }}">
+<form method="post">
 
-    <label>
-     Username
-     <input name="username" required>
-    </label>
+<input type="hidden"
+name="csrf"
+value="{{ csrf_token() }}">
 
-    <label>
-     Password
-     <input name="password" type="password" required>
-    </label>
+<label>
+Username
+<input name="username" required>
+</label>
 
-    <button type="submit">LOGIN</button>
+<label>
+Password
+<input name="password"
+type="password"
+required>
+</label>
 
-   </form>
+<button type="submit">
+LOGIN ↗
+</button>
 
-  {% else %}
+</form>
 
-   <form method="POST" action="/admin/logout">
+{% else %}
 
-    <input type="hidden"
-           name="csrf"
-           value="{{ csrf_token() }}">
+<form method="post" action="/admin/logout">
+<input type="hidden"
+name="csrf"
+value="{{ csrf_token() }}">
+<button type="submit">LOGOUT</button>
+</form>
 
-    <button type="submit">Logout</button>
+<div class="admin-columns">
 
-   </form>
+<div>
 
-   <div class="admin-columns">
+<h2>Upload New Photo</h2>
 
-    <div>
-     <h2>Upload New Photo</h2>
+<form method="post" enctype="multipart/form-data">
 
-     <form method="POST" enctype="multipart/form-data">
+<input type="hidden"
+name="csrf"
+value="{{ csrf_token() }}">
 
-      <input type="hidden"
-             name="csrf"
-             value="{{ csrf_token() }}">
+<label>
+Choose Photo
+<input type="file"
+name="photo"
+accept="image/png,image/jpeg,image/webp"
+required>
+</label>
 
-      <label>
-       Select Photo
-       <input type="file"
-              name="photo"
-              accept="image/jpeg,image/png,image/webp"
-              required>
-      </label>
+<label>
+Photo Title
+<input name="title" maxlength="100" required>
+</label>
 
-      <label>
-       Photo Title
-       <input name="title" maxlength="100" required>
-      </label>
+<label>
+Description
+<textarea name="description" maxlength="400"></textarea>
+</label>
 
-      <label>
-       Description
-       <textarea name="description"
-                 maxlength="400"></textarea>
-      </label>
+<label>
+Category
+<select name="category">
 
-      <label>
-       Category
-       <select name="category">
+{% for section in sections %}
+<option value="{{ section.id }}">
+{{ section.name }}
+</option>
+{% endfor %}
 
-        {% for section in sections %}
-         <option value="{{ section.id }}">
-          {{ section.title }}
-         </option>
-        {% endfor %}
+<option value="other">Other</option>
 
-        <option value="other">Other Photos</option>
+</select>
+</label>
 
-       </select>
-      </label>
+<button type="submit">
+UPLOAD PHOTO ↗
+</button>
 
-      <button type="submit">UPLOAD PHOTO</button>
+</form>
+</div>
 
-     </form>
-    </div>
+<div>
+<h2>Photo Management</h2>
 
-    <div>
-     <h2>Website Photo Names</h2>
+<p class="copy">
+Photos inside static/images appear automatically.
+</p>
 
-     <p>Homepage: pabiana.png</p>
-     <p>Views: view.png</p>
-     <p>Temple: temple.png</p>
-     <p>Senior Secondary School: school.png</p>
-     <p>Primary School: primary.png</p>
-     <p>Panchayat: panchayal.png</p>
-     <p>Resort: resort.png</p>
-     <p>Road: road.png</p>
-     <p>Developer: vaibhav.jpg</p>
+<p class="copy">
+Special image filenames:
+pabiana.png, mountain.png, school.png,
+primary.png, temple.png, panchayal.png,
+resort.png and road.png.
+</p>
 
-    </div>
+<p class="copy">
+All photos are displayed fully without cropping.
+</p>
 
-   </div>
+</div>
+</div>
 
-   <h2 style="margin-top:45px">
-    Uploaded Photos
-   </h2>
+<h2>Uploaded Photos</h2>
 
-   {% for photo in photos %}
+{% for photo in uploaded %}
 
-    <div class="admin-photo">
+<div class="admin-photo">
 
-     <img src="{{ photo.url }}"
-          alt="{{ photo.title }}">
+<img src="{{ url_for('uploaded_photo',filename=photo.filename) }}"
+alt="{{ photo.title }}">
 
-     <div>
-      <strong>{{ photo.title }}</strong>
-      <p>{{ photo.category }}</p>
-     </div>
+<div style="flex:1">
+<strong>{{ photo.title }}</strong>
+<p>{{ photo.category }}</p>
+</div>
 
-     <form method="POST"
-           action="/admin/delete/{{ photo.id }}"
-           onsubmit="return confirm('Delete this photo?')">
+<form method="post"
+action="{{ url_for('delete_photo',photo_id=photo.id) }}"
+onsubmit="return confirm('Delete this photo?')">
 
-      <input type="hidden"
-             name="csrf"
-             value="{{ csrf_token() }}">
+<input type="hidden"
+name="csrf"
+value="{{ csrf_token() }}">
 
-      <button type="submit">Delete</button>
+<button type="submit">
+DELETE
+</button>
 
-     </form>
+</form>
 
-    </div>
+</div>
 
-   {% else %}
-    <p>No uploaded photos yet.</p>
-   {% endfor %}
+{% else %}
+<p>No additional photos uploaded yet.</p>
+{% endfor %}
 
-  {% endif %}
+{% endif %}
 
- </div>
+</div>
 </div>
 
 </body>
@@ -2187,137 +1971,66 @@ ADMIN_HTML = """
 """
 
 # ============================================================
-# RENDER WEBSITE
+# TEMPLATE CONFIGURATION
 # ============================================================
 
-def render_website(page="home", selected=""):
-    photos = all_photos()
-    sections = []
+app.jinja_loader = DictLoader({
+    "base.html": BASE_HTML,
+    "home.html": HOME_HTML,
+    "gallery.html": GALLERY_HTML
+})
 
-    for section in SECTIONS:
-        item = dict(section)
 
-        # First try the expected static photo.
-        item["photo"] = photo_url(section["file"])
-
-        # If not found, use a photo from the same category.
-        if not item["photo"]:
-            matches = [
-                photo for photo in photos
-                if photo["category"] == section["id"]
-            ]
-
-            if matches:
-                item["photo"] = matches[0]["url"]
-
-        sections.append(item)
-
-    # Main gallery begins with one image per category.
-    preview = []
-    seen = set()
-
-    for section in sections:
-        if section["photo"] and section["photo"] not in seen:
-            matching = next(
-                (
-                    photo for photo in photos
-                    if photo["url"] == section["photo"]
-                ),
-                None
-            )
-
-            if matching:
-                preview.append(matching)
-                seen.add(matching["url"])
-
-    for photo in photos:
-        if photo["url"] not in seen:
-            preview.append(photo)
-            seen.add(photo["url"])
-
-    if page == "gallery" and selected:
-        visible = [
-            photo for photo in photos
-            if photo["category"] == selected
-        ]
-    elif page == "home":
-        visible = preview
-    else:
-        visible = photos
-
-    intro = photo_url("view.png")
-
-    if not intro and preview:
-        intro = preview[0]["url"]
-
+def render_page(template, **kwargs):
     return render_template_string(
-        HTML,
+        "{% extends '" + template + "' %}",
         css=CSS,
-        page=page,
-        lang=session.get("language", "en"),
-        sections=sections,
-        photos=visible,
-        selected=selected,
-        hero=photo_url("pabiana.png"),
-        intro=intro,
-        portrait=photo_url("vaibhav.jpg"),
-        year=datetime.now().year
+        year=datetime.now().year,
+        developer_photo=(
+            find_photo("vaibhav.jpg")
+            or find_photo("vaibhav.png")
+        ),
+        **kwargs
     )
 
-
 # ============================================================
-# PUBLIC ROUTES
+# HOME
 # ============================================================
 
 @app.route("/")
 def home():
-    return render_website()
+    sections = prepared_sections()
 
+    return render_page(
+        "home.html",
+        page_title="Pabiana Village | Sirmaur, Himachal Pradesh",
+        hero=find_photo("pabiana.png"),
+        intro=find_photo("mountain.png"),
+        sections=sections,
+        photos=all_photos()
+    )
+
+
+# ============================================================
+# GALLERY
+# ============================================================
 
 @app.route("/gallery")
 def gallery():
-    selected = request.args.get("category", "")
-
-    valid = {section["id"] for section in SECTIONS}
-    valid.add("other")
-
-    if selected not in valid:
-        selected = ""
-
-    return render_website("gallery", selected)
+    return render_page(
+        "gallery.html",
+        page_title="Photo Gallery | Pabiana Village",
+        photos=all_photos()
+    )
 
 
-@app.route("/language/<code>")
-def change_language(code):
-    if code not in ("en", "hi"):
-        abort(404)
+# ============================================================
+# UPLOADED PHOTO ROUTE
+# ============================================================
 
-    session["language"] = code
-
-    destination = request.args.get("next", "/")
-
-    if (
-        not destination.startswith("/")
-        or destination.startswith("//")
-        or destination.startswith("/\\")
-    ):
-        destination = "/"
-
-    return redirect(destination)
-
-
-@app.route("/uploaded/<filename>")
+@app.route("/uploads/<path:filename>")
 def uploaded_photo(filename):
-    with get_db() as db:
-        record = db.execute(
-            "SELECT 1 FROM uploaded_photos WHERE filename=?",
-            (filename,)
-        ).fetchone()
-
-    if not record:
-        abort(404)
-
-    return send_from_directory(UPLOADS, filename)
+    return send_from_directory(UPLOAD_DIR, filename)
 
 
 # ============================================================
@@ -2326,10 +2039,13 @@ def uploaded_photo(filename):
 
 @app.route("/admin/login", methods=["GET", "POST"])
 def admin_login():
+    if session.get("admin"):
+        return redirect(url_for("admin_dashboard"))
+
     if request.method == "POST":
         verify_csrf()
 
-        username = request.form.get("username", "")
+        username = request.form.get("username", "").strip()
         password = request.form.get("password", "")
 
         with get_db() as db:
@@ -2343,8 +2059,6 @@ def admin_login():
         ):
             session.clear()
             session["admin"] = username
-            csrf_token()
-
             return redirect(url_for("admin_dashboard"))
 
         flash("Invalid username or password.")
@@ -2352,102 +2066,94 @@ def admin_login():
     return render_template_string(
         ADMIN_HTML,
         css=CSS,
-        login=True,
-        sections=SECTIONS,
-        photos=[]
+        login=True
     )
 
 
 # ============================================================
-# ADMIN PHOTO UPLOAD
+# ADMIN DASHBOARD & UPLOAD
 # ============================================================
 
 @app.route("/admin", methods=["GET", "POST"])
 @admin_required
 def admin_dashboard():
+
     if request.method == "POST":
         verify_csrf()
 
         file = request.files.get("photo")
         title = request.form.get("title", "").strip()[:100]
-        description = request.form.get(
-            "description", ""
-        ).strip()[:400]
+        description = request.form.get("description", "").strip()[:400]
         category = request.form.get("category", "other")
 
-        valid = {section["id"] for section in SECTIONS}
-        valid.add("other")
+        valid_categories = {
+            section["id"] for section in SECTIONS
+        } | {"other"}
 
-        if not file or not title or category not in valid:
-            flash("Please enter valid photo details.")
+        if category not in valid_categories:
+            abort(400)
+
+        if not file or not file.filename or not title:
+            flash("Please provide a photo and title.")
             return redirect(url_for("admin_dashboard"))
 
-        filename = uuid.uuid4().hex + ".jpg"
-        destination = UPLOADS / filename
+        extension = Path(
+            secure_filename(file.filename)
+        ).suffix.lower()
+
+        if extension not in ALLOWED_IMAGES:
+            flash("Only JPG, PNG and WEBP images are supported.")
+            return redirect(url_for("admin_dashboard"))
+
+        from PIL import Image, UnidentifiedImageError
+
+        raw = file.read()
 
         try:
-            raw = file.read()
-
-            with Image.open(io.BytesIO(raw)) as check:
-                check.verify()
-
             with Image.open(io.BytesIO(raw)) as image:
-                if image.format not in ("JPEG", "PNG", "WEBP"):
-                    raise ValueError("Unsupported image format")
+                image.verify()
+        except (UnidentifiedImageError, OSError, ValueError):
+            flash("Invalid image file.")
+            return redirect(url_for("admin_dashboard"))
 
-                if image.width * image.height > 30_000_000:
-                    raise ValueError("Image too large")
+        photo_id = uuid.uuid4().hex
+        filename = photo_id + extension
 
-                image = ImageOps.exif_transpose(image)
-                image = image.convert("RGB")
-                image.thumbnail((2200, 2200))
+        (UPLOAD_DIR / filename).write_bytes(raw)
 
-                image.save(
-                    destination,
-                    "JPEG",
-                    quality=91,
-                    optimize=True
-                )
+        with get_db() as db:
+            db.execute("""
+                INSERT INTO uploaded_photos
+                (id, filename, title, description, category, created_at)
+                VALUES (?, ?, ?, ?, ?, ?)
+            """, (
+                photo_id,
+                filename,
+                title,
+                description,
+                category,
+                datetime.now().isoformat()
+            ))
 
-            with get_db() as db:
-                db.execute("""
-                    INSERT INTO uploaded_photos
-                    (id, filename, title, description,
-                     category, created_at)
-                    VALUES (?, ?, ?, ?, ?, ?)
-                """, (
-                    uuid.uuid4().hex,
-                    filename,
-                    title,
-                    description,
-                    category,
-                    datetime.now().isoformat()
-                ))
-
-            flash("Photo uploaded successfully!")
-
-        except (OSError, ValueError, Image.DecompressionBombError):
-            destination.unlink(missing_ok=True)
-            flash("Unable to upload this photo.")
-
+        flash("Photo uploaded successfully!")
         return redirect(url_for("admin_dashboard"))
 
-    uploaded = [
-        photo for photo in all_photos()
-        if photo["source"] == "upload"
-    ]
+    with get_db() as db:
+        uploaded = db.execute(
+            "SELECT * FROM uploaded_photos ORDER BY created_at DESC"
+        ).fetchall()
 
     return render_template_string(
         ADMIN_HTML,
         css=CSS,
         login=False,
         sections=SECTIONS,
-        photos=uploaded
+        uploaded=uploaded
     )
 
 
 # ============================================================
-# DELETE UPLOADED PHOTO
+# DELETE PHOTO
 # ============================================================
 
 @app.route("/admin/delete/<photo_id>", methods=["POST"])
@@ -2456,31 +2162,38 @@ def delete_photo(photo_id):
     verify_csrf()
 
     with get_db() as db:
-        record = db.execute(
-            "SELECT filename FROM uploaded_photos WHERE id=?",
+        photo = db.execute(
+            "SELECT * FROM uploaded_photos WHERE id=?",
             (photo_id,)
         ).fetchone()
 
-        if record:
+        if photo:
             db.execute(
                 "DELETE FROM uploaded_photos WHERE id=?",
                 (photo_id,)
             )
 
-    if record:
-        (UPLOADS / record["filename"]).unlink(missing_ok=True)
+    if photo:
+        filename = Path(photo["filename"]).name
+        path = UPLOAD_DIR / filename
 
-    flash("Photo deleted successfully.")
+        if path.is_file():
+            path.unlink()
+
+        flash("Photo deleted successfully.")
 
     return redirect(url_for("admin_dashboard"))
 
+
+# ============================================================
+# LOGOUT
+# ============================================================
 
 @app.route("/admin/logout", methods=["POST"])
 @admin_required
 def admin_logout():
     verify_csrf()
     session.clear()
-
     return redirect(url_for("home"))
 
 
@@ -2490,72 +2203,55 @@ def admin_logout():
 
 @app.route("/robots.txt")
 def robots():
-    sitemap_url = url_for("sitemap", _external=True)
-
     content = (
         "User-agent: *\n"
         "Allow: /\n"
         "Disallow: /admin\n"
-        "Sitemap: " + sitemap_url + "\n"
+        "Disallow: /admin/login\n"
     )
 
-    return Response(content, mimetype="text/plain")
+    return app.response_class(
+        content,
+        mimetype="text/plain"
+    )
 
 
 @app.route("/sitemap.xml")
 def sitemap():
+    from xml.sax.saxutils import escape
+
+    base_url = request.url_root.rstrip("/")
+
     urls = [
-        url_for("home", _external=True),
-        url_for("gallery", _external=True)
+        base_url + "/",
+        base_url + "/gallery"
     ]
+
+    entries = "".join(
+        f"<url><loc>{escape(url)}</loc></url>"
+        for url in urls
+    )
 
     xml = (
         '<?xml version="1.0" encoding="UTF-8"?>'
         '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'
-        + "".join(
-            "<url><loc>" + escape(url) + "</loc></url>"
-            for url in urls
-        )
-        + "</urlset>"
+        + entries +
+        '</urlset>'
     )
 
-    return Response(xml, mimetype="application/xml")
+    return app.response_class(
+        xml,
+        mimetype="application/xml"
+    )
 
 
 # ============================================================
-# START WEBSITE
+# START
 # ============================================================
 
 if __name__ == "__main__":
-    print("\n" + "=" * 60)
-    print("PABIANA VILLAGE — PREMIUM GREEN & BLUE")
-    print("Created by Vaibhav Bhatia")
-    print("=" * 60)
-
-    required = [
-        "pabiana.png",
-        "view.png",
-        "temple.png",
-        "school.png",
-        "primary.png",
-        "panchayal.png",
-        "resort.png",
-        "road.png",
-        "vaibhav.jpg"
-    ]
-
-    for filename in required:
-        found = find_photo(filename)
-        print(f"{filename}: {'FOUND' if found else 'MISSING'}")
-
-    print("=" * 60)
-    print("Website: http://127.0.0.1:5000")
-    print("Gallery: http://127.0.0.1:5000/gallery")
-    print("Admin: http://127.0.0.1:5000/admin/login")
-    print("=" * 60 + "\n")
-
     app.run(
-        host="127.0.0.1",
-        port=5000,
-        debug=False
+        host="0.0.0.0",
+        port=int(os.environ.get("PORT", 5000)),
+        debug=os.environ.get("FLASK_DEBUG") == "1"
     )
