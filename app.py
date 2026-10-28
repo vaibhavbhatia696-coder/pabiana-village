@@ -10,14 +10,12 @@ import os
 
 # ============================================================
 # PABIANA VILLAGE WEBSITE
-# ROYAL PURPLE GLASS — OPTION 4
-# UPDATED: TEMPLE + RESORT
-# ALL PHOTOS DIRECTLY INSIDE STATIC
+# OPTION 4 - ROYAL PURPLE GLASS
+# COMPLETE SINGLE FILE APP.PY
 # ============================================================
 
 BASE_DIR = Path(__file__).resolve().parent
 STATIC_DIR = BASE_DIR / "static"
-
 STATIC_DIR.mkdir(parents=True, exist_ok=True)
 
 app = Flask(
@@ -29,34 +27,36 @@ app = Flask(
 app.json.ensure_ascii = False
 
 # ============================================================
-# PHOTO FILENAMES
+# PHOTO CONFIGURATION
 # ============================================================
 
 PHOTO_NAMES = {
     "village": ["pabiana.png", "pabiana.jpg", "pabiana.jpeg"],
     "road": ["road.png", "road.jpg", "road.jpeg"],
+    "bus": ["bus.png", "bus.jpg", "bus.jpeg"],
+    "peak1": ["peak1.png", "peak1.jpg", "peak1.jpeg"],
+    "peak2": ["peak2.png", "peak2.jpg", "peak2.jpeg"],
+    "tower": ["tower.png", "tower.jpg", "tower.jpeg"],
     "school": ["school.png", "school.jpg", "school.jpeg"],
+    "primary": ["primary.png", "primary.jpg", "primary.jpeg"],
+    "panchayat": ["panchayat.png", "panchayat.jpg", "panchayat.jpeg"],
     "mountain": ["mountain.png", "mountain.jpg", "mountain.jpeg"],
-    "primary": [
-        "primary.png", "primaryschool.png",
-        "primary_school.png", "primary.jpg"
-    ],
-    "panchayat": [
-        "panchayat.png", "serjagas.png",
-        "ser_jagas.png", "gram_panchayat.png"
-    ],
     "temple": ["temple.png", "temple.jpg", "temple.jpeg"],
     "resort": ["resort.png", "resort.jpg", "resort.jpeg"],
-    "creator": ["vaibhav.png"]
+    "creator": ["vaibhav.png", "vaibhav.jpg"]
 }
 
 PHOTO_TITLES = {
     "village": "Pabiana Village",
     "road": "Main Road to Solan",
+    "bus": "Bus Connectivity",
+    "peak1": "Churdhar Peak - View One",
+    "peak2": "Churdhar Peak - View Two",
+    "tower": "Network Tower",
     "school": "Senior Secondary School Pabiana",
-    "mountain": "Krol Tibba Solan",
     "primary": "Primary School Pabiana",
     "panchayat": "Gram Panchayat Ser Jagas",
+    "mountain": "Krol Tibba Solan",
     "temple": "Temple of Pabiana",
     "resort": "Resort & Mountain Retreat"
 }
@@ -111,7 +111,7 @@ def get_gallery():
         if item.name.lower() in used:
             continue
 
-        if item.name.lower() == "vaibhav.png":
+        if item.name.lower().startswith("vaibhav."):
             continue
 
         photos.append({
@@ -123,10 +123,13 @@ def get_gallery():
 
 
 # ============================================================
-# VILLAGE CONTENT — TOTAL 8 SECTIONS
+# ALL SECTIONS - CORRECT SEQUENCE
 # ============================================================
 
 SECTIONS = [
+
+    # 01 - PABIANA VILLAGE
+
     {
         "id": "about",
         "photo": "village",
@@ -137,16 +140,22 @@ SECTIONS = [
         "description": (
             "Nestled among the beautiful hills of Sirmaur, "
             "Pabiana is a peaceful village in Himachal Pradesh. "
-            "Its mountain landscapes, natural surroundings "
-            "and village lifestyle make it a special place."
+            "Surrounded by green mountains, fresh air and "
+            "breathtaking natural scenery, the village offers "
+            "a wonderful glimpse of traditional Himachali life. "
+            "Its natural beauty, friendly community and scenic "
+            "surroundings make Pabiana a truly special place."
         ),
         "hi_description": (
-            "हिमाचल प्रदेश के सिरमौर जिले की सुंदर "
-            "पहाड़ियों में बसा पबियाना एक शांत गाँव है। "
-            "यहाँ के प्राकृतिक नज़ारे और ग्रामीण जीवन "
-            "इसकी खास पहचान हैं।"
+            "हिमाचल प्रदेश के सिरमौर जिले की सुंदर पहाड़ियों "
+            "में बसा पबियाना एक शांत और खूबसूरत गाँव है। "
+            "चारों ओर हरे-भरे पहाड़, स्वच्छ हवा और प्राकृतिक "
+            "नज़ारे इस गाँव को विशेष बनाते हैं।"
         )
     },
+
+    # 02 - MAIN ROAD
+
     {
         "id": "road",
         "photo": "road",
@@ -155,79 +164,168 @@ SECTIONS = [
         "title": "Main Road to Solan",
         "hi_title": "सोलन की ओर मुख्य सड़क",
         "description": (
-            "The scenic main road towards Solan offers "
-            "beautiful views of the surrounding hills. "
-            "The distance to Solan is approximately 32 km."
+            "The main road passing through Pabiana connects "
+            "the Sirmaur region towards Solan. Surrounded by "
+            "beautiful hills and mountain landscapes, this "
+            "road offers scenic views throughout the journey. "
+            "Solan is approximately 32 kilometres away, "
+            "making this road an important connection for "
+            "local residents and travellers."
         ),
         "hi_description": (
-            "सोलन की ओर जाने वाली मुख्य सड़क आसपास की "
-            "पहाड़ियों के सुंदर दृश्य दिखाती है। "
-            "सोलन की दूरी लगभग 32 किलोमीटर है।"
+            "पबियाना से होकर गुजरने वाली मुख्य सड़क सिरमौर "
+            "क्षेत्र को सोलन की ओर जोड़ती है। सुंदर पहाड़ियों "
+            "के बीच से गुजरने वाली इस सड़क से सोलन की दूरी "
+            "लगभग 32 किलोमीटर है।"
         )
     },
+
+    # 03 - BUS CONNECTIVITY
+
+    {
+        "id": "bus",
+        "photo": "bus",
+        "number": "03",
+        "tag": "CONNECTED TO MORE DESTINATIONS",
+        "title": "A Village with Better Bus Connectivity",
+        "hi_title": "बेहतर बस सुविधा से जुड़ा हमारा गाँव",
+        "description": (
+            "Pabiana benefits from bus connectivity that "
+            "helps residents travel to nearby towns and "
+            "farther destinations. Public transport plays "
+            "an important role in the everyday lives of "
+            "students, working professionals and families. "
+            "These transport connections help people access "
+            "education, employment and essential services "
+            "while keeping the village connected to "
+            "the surrounding region."
+        ),
+        "hi_description": (
+            "पबियाना में बस सुविधा गाँव को आसपास के कस्बों "
+            "और दूर के स्थानों से जोड़ती है। विद्यार्थियों, "
+            "कामकाजी लोगों और परिवारों के लिए यह सुविधा "
+            "यात्रा को आसान और सुविधाजनक बनाती है।"
+        )
+    },
+
+    # 04 - CHURDHAR PEAK - TWO PHOTOS
+
+    {
+        "id": "peak",
+        "photo": "peak1",
+        "number": "04",
+        "tag": "THE MAJESTIC HIMALAYAS",
+        "title": "Churdhar Peak - Sirmaur's Highest Peak",
+        "hi_title": "चूड़धार - सिरमौर की सबसे ऊँची चोटी",
+        "description": (
+            "Churdhar Peak rises approximately 3,647 metres "
+            "above sea level and is the highest peak in "
+            "Sirmaur district. Known for its magnificent "
+            "Himalayan panoramas, peaceful natural surroundings "
+            "and adventurous trekking routes, Churdhar is one "
+            "of the most remarkable mountain landmarks in "
+            "the region. Its beautiful landscapes attract "
+            "nature lovers, trekkers and visitors who wish "
+            "to experience the breathtaking beauty of "
+            "the Himalayas."
+        ),
+        "hi_description": (
+            "समुद्र तल से लगभग 3,647 मीटर ऊँची चूड़धार "
+            "सिरमौर जिले की सबसे ऊँची चोटी है। हिमालय "
+            "के शानदार नज़ारों, प्राकृतिक सुंदरता और "
+            "रोमांचक ट्रेकिंग मार्गों के लिए यह प्रसिद्ध है।"
+        )
+    },
+
+    # 05 - NETWORK TOWER
+
+    {
+        "id": "tower",
+        "photo": "tower",
+        "number": "05",
+        "tag": "STAYING CONNECTED",
+        "title": "A Tower That Connects Everyone",
+        "hi_title": "सबको जोड़ने वाला नेटवर्क टावर",
+        "description": (
+            "The network tower represents modern communication "
+            "and connectivity in Pabiana. Mobile networks help "
+            "people stay in touch with family and friends, "
+            "access digital services and connect with the "
+            "wider world. Communication infrastructure plays "
+            "an important role in supporting everyday life "
+            "even in peaceful mountain villages."
+        ),
+        "hi_description": (
+            "पबियाना का नेटवर्क टावर आधुनिक संचार और "
+            "कनेक्टिविटी का प्रतीक है। मोबाइल नेटवर्क लोगों "
+            "को परिवार, दोस्तों और बाहरी दुनिया से जुड़े "
+            "रहने में मदद करता है।"
+        )
+    },
+
+    # 06 - SENIOR SECONDARY SCHOOL
+
     {
         "id": "school",
         "photo": "school",
-        "number": "03",
+        "number": "06",
         "tag": "EDUCATION & GROWTH",
         "title": "Senior Secondary School Pabiana",
         "hi_title": "वरिष्ठ माध्यमिक विद्यालय पबियाना",
         "description": (
             "Senior Secondary School Pabiana is an important "
-            "educational landmark of our village, representing "
-            "learning, opportunity and the future of students."
+            "educational landmark of the village. The school "
+            "supports the academic development of students "
+            "and represents learning, opportunity and progress. "
+            "Education plays a valuable role in strengthening "
+            "the future of the village community."
         ),
         "hi_description": (
             "वरिष्ठ माध्यमिक विद्यालय पबियाना गाँव का "
-            "एक महत्वपूर्ण शैक्षणिक संस्थान है।"
+            "एक महत्वपूर्ण शैक्षणिक संस्थान है। यह "
+            "विद्यार्थियों की शिक्षा और उज्ज्वल भविष्य "
+            "का प्रतीक है।"
         )
     },
-    {
-        "id": "mountain",
-        "photo": "mountain",
-        "number": "04",
-        "tag": "MOUNTAIN BEAUTY",
-        "title": "Krol Tibba Solan",
-        "hi_title": "क्रोल टिब्बा सोलन",
-        "description": (
-            "The beautiful mountain scenery associated with "
-            "Krol Tibba near Solan highlights the impressive "
-            "natural landscape of this Himalayan region."
-        ),
-        "hi_description": (
-            "सोलन के पास क्रोल टिब्बा का सुंदर "
-            "पहाड़ी दृश्य इस क्षेत्र की प्राकृतिक "
-            "सुंदरता को दर्शाता है।"
-        )
-    },
+
+    # 07 - PRIMARY SCHOOL
+
     {
         "id": "primary",
         "photo": "primary",
-        "number": "05",
+        "number": "07",
         "tag": "FOUNDATION OF LEARNING",
         "title": "Primary School Pabiana",
         "hi_title": "प्राथमिक विद्यालय पबियाना",
         "description": (
-            "Primary School Pabiana is part of the village's "
-            "educational identity and supports the early "
-            "learning journey of children."
+            "Primary School Pabiana provides an important "
+            "foundation for children's early education. "
+            "It is part of the educational identity of "
+            "the village and contributes to the learning "
+            "and development of young students."
         ),
         "hi_description": (
             "प्राथमिक विद्यालय पबियाना गाँव के बच्चों "
             "की प्रारंभिक शिक्षा का महत्वपूर्ण केंद्र है।"
         )
     },
+
+    # 08 - GRAM PANCHAYAT
+
     {
         "id": "panchayat",
         "photo": "panchayat",
-        "number": "06",
+        "number": "08",
         "tag": "OUR LOCAL COMMUNITY",
         "title": "Gram Panchayat Ser Jagas",
         "hi_title": "ग्राम पंचायत सेर जगास",
         "description": (
             "Pabiana is associated with Gram Panchayat "
             "Ser Jagas in the Rajgarh development block "
-            "of Sirmaur district, Himachal Pradesh."
+            "of Sirmaur district, Himachal Pradesh. "
+            "The panchayat represents local administration "
+            "and plays an important role in village "
+            "development and community affairs."
         ),
         "hi_description": (
             "पबियाना गाँव हिमाचल प्रदेश के सिरमौर जिले "
@@ -235,48 +333,80 @@ SECTIONS = [
             "सेर जगास से संबंधित है।"
         )
     },
+
+    # 09 - KROL TIBBA
+
+    {
+        "id": "mountain",
+        "photo": "mountain",
+        "number": "09",
+        "tag": "MOUNTAIN BEAUTY",
+        "title": "Krol Tibba Solan",
+        "hi_title": "क्रोल टिब्बा सोलन",
+        "description": (
+            "The mountain views towards Krol Tibba near "
+            "Solan highlight the natural beauty of this "
+            "Himalayan region. From the surrounding landscape, "
+            "the hills towards Kali Tibba in Chail also "
+            "create a beautiful mountain panorama. "
+            "These scenic surroundings are among the "
+            "most memorable features of the region."
+        ),
+        "hi_description": (
+            "सोलन के पास क्रोल टिब्बा और चायल की ओर "
+            "काली टिब्बा के सुंदर पहाड़ी दृश्य इस क्षेत्र "
+            "की प्राकृतिक सुंदरता को दर्शाते हैं।"
+        )
+    },
+
+    # 10 - TEMPLE
+
     {
         "id": "temple",
         "photo": "temple",
-        "number": "07",
+        "number": "10",
         "tag": "SPIRITUAL HERITAGE",
         "title": "Temple of Pabiana",
         "hi_title": "पबियाना का सुंदर मंदिर",
         "description": (
-            "Explore the spiritual beauty and peaceful "
-            "atmosphere of the temple in Pabiana. "
-            "A place of faith, devotion and traditional "
-            "Himachali culture, the temple adds a special "
-            "charm to the village's identity."
+            "The temple of Pabiana reflects the spiritual "
+            "heritage and traditional culture of the village. "
+            "Surrounded by a peaceful atmosphere, it is "
+            "associated with faith, devotion and the "
+            "cultural identity of the local community. "
+            "The temple adds a special charm to the "
+            "beautiful surroundings of Pabiana."
         ),
         "hi_description": (
-            "पबियाना का सुंदर मंदिर आस्था, भक्ति "
-            "और हिमाचली संस्कृति की पहचान है। "
-            "यह शांत वातावरण और आध्यात्मिक सुंदरता "
-            "से जुड़ा एक विशेष स्थान है।"
+            "पबियाना का सुंदर मंदिर आस्था, भक्ति और "
+            "हिमाचली संस्कृति की पहचान है। यहाँ का "
+            "शांत वातावरण गाँव की आध्यात्मिक सुंदरता "
+            "को दर्शाता है।"
         )
     },
+
+    # 11 - RESORT
+
     {
         "id": "resort",
         "photo": "resort",
-        "number": "08",
+        "number": "11",
         "tag": "NATURE & HOSPITALITY",
         "title": "Resort & Mountain Retreat",
         "hi_title": "रिसॉर्ट और पहाड़ी वातावरण",
         "description": (
-            "Discover the resort and its beautiful "
-            "mountain surroundings. The scenic setting "
-            "reflects the peaceful atmosphere and "
-            "natural charm of the Pabiana region, "
-            "offering a wonderful glimpse of "
-            "Himachal's hillside beauty."
+            "Located approximately 400 metres from Pabiana, "
+            "the resort is surrounded by beautiful mountain "
+            "scenery and peaceful natural surroundings. "
+            "The location reflects the charm of Himachal "
+            "Pradesh's hillside landscapes and provides "
+            "a wonderful glimpse of the region's natural beauty."
         ),
         "hi_description": (
-            "रिसॉर्ट और उसके आसपास का सुंदर "
-            "पहाड़ी वातावरण इस क्षेत्र की "
-            "प्राकृतिक खूबसूरती को दर्शाता है। "
-            "यहाँ के मनोरम दृश्य हिमाचल की "
-            "पहाड़ियों की खास पहचान हैं।"
+            "पबियाना से लगभग 400 मीटर दूर स्थित रिसॉर्ट "
+            "के आसपास सुंदर पहाड़ और प्राकृतिक दृश्य हैं। "
+            "यह स्थान क्षेत्र के शांत और मनमोहक वातावरण "
+            "को दर्शाता है।"
         )
     }
 ]
@@ -291,18 +421,20 @@ HTML = r"""
 <html lang="en">
 
 <head>
-<meta name="google-site-verification" content="YK1rfP_sDmG4xgrp4DahlcmsuC8MFlnk8DNsooUqoXU" />
 
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 
+<meta name="google-site-verification"
+content="YK1rfP_sDmG4xgrp4DahlcmsuC8MFlnk8DNsooUqoXU">
+
 <title>Pabiana Village | Sirmaur, Himachal Pradesh</title>
 
 <meta name="description"
-content="Explore Pabiana Village, Sirmaur, Himachal Pradesh. Discover mountains, schools, village roads, temples, resort scenery and Gram Panchayat Ser Jagas.">
+content="Discover Pabiana Village in Sirmaur, Himachal Pradesh. Explore Churdhar Peak, schools, roads, bus connectivity, temples, mountains and village life.">
 
 <meta name="keywords"
-content="Pabiana, Pabiana Village, Sirmaur, Rajgarh, Himachal Pradesh, Temple Pabiana, Resort Pabiana, Krol Tibba, Ser Jagas">
+content="Pabiana Village, Pabiana, Sirmaur, Rajgarh, Himachal Pradesh, Churdhar Peak, Solan, Ser Jagas">
 
 <meta name="robots" content="index,follow">
 <meta name="theme-color" content="#7043cb">
@@ -310,7 +442,7 @@ content="Pabiana, Pabiana Village, Sirmaur, Rajgarh, Himachal Pradesh, Temple Pa
 <meta property="og:type" content="website">
 <meta property="og:title" content="Pabiana Village | Himachal Pradesh">
 <meta property="og:description"
-content="Discover the beauty, culture and mountain landscapes of Pabiana Village.">
+content="Explore the beauty, culture and mountains of Pabiana Village.">
 
 {% if hero %}
 <meta property="og:image"
@@ -384,7 +516,7 @@ img {
 }
 
 /* =====================================================
-   GLASS NAVIGATION
+   NAVIGATION
 ===================================================== */
 
 .navbar {
@@ -422,11 +554,11 @@ img {
 .nav-links {
     display: flex;
     align-items: center;
-    gap: 25px;
+    gap: 22px;
 }
 
 .nav-links a {
-    font-size: 13px;
+    font-size: 12px;
     font-weight: 700;
     color: #604e7b;
     transition: color .3s;
@@ -441,7 +573,8 @@ img {
     gap: 9px;
 }
 
-.lang-btn, .menu-btn {
+.lang-btn,
+.menu-btn {
     border: 1px solid #e3d5f9;
     background: #f1e9ff;
     color: #5d31a6;
@@ -458,7 +591,7 @@ img {
 }
 
 /* =====================================================
-   HERO — BRIGHT PURPLE + GLASS PHOTO
+   HERO
 ===================================================== */
 
 .hero {
@@ -580,7 +713,7 @@ img {
 }
 
 /* =====================================================
-   FLOATING HERO PHOTO
+   HERO PHOTO
 ===================================================== */
 
 .hero-visual {
@@ -662,13 +795,21 @@ img {
 }
 
 @keyframes heroFloat {
-    0%,100% {transform: translateY(0) rotate(2deg)}
-    50% {transform: translateY(-13px) rotate(1deg)}
+    0%,100% {
+        transform: translateY(0) rotate(2deg);
+    }
+    50% {
+        transform: translateY(-13px) rotate(1deg);
+    }
 }
 
 @keyframes cardFloat {
-    0%,100% {transform: translateY(0)}
-    50% {transform: translateY(-11px)}
+    0%,100% {
+        transform: translateY(0);
+    }
+    50% {
+        transform: translateY(-11px);
+    }
 }
 
 /* =====================================================
@@ -780,7 +921,7 @@ img {
 }
 
 /* =====================================================
-   ALTERNATING STORY SECTIONS
+   ZIGZAG STORY SECTIONS
 ===================================================== */
 
 .stories {
@@ -856,7 +997,7 @@ img {
     justify-content: center;
 }
 
-.photo-display img {
+.photo-display > img {
     width: 100%;
     height: auto;
     max-height: 530px;
@@ -865,8 +1006,44 @@ img {
     transition: transform .55s;
 }
 
-.photo-glass:hover img {
+.photo-glass:hover .photo-display > img {
     transform: scale(1.025);
+}
+
+/* =====================================================
+   TWO CHURDHAR PHOTOS IN ONE STORY SECTION
+===================================================== */
+
+.peak-photo-pair {
+    width: 100%;
+    display: grid;
+    grid-template-columns: repeat(2,minmax(0,1fr));
+    gap: 12px;
+    padding: 8px;
+    align-items: center;
+}
+
+.peak-photo-pair img {
+    display: block;
+    width: 100%;
+    height: 260px;
+    object-fit: contain;
+    border-radius: 14px;
+    background: #f0e9fa;
+    transition: transform .35s ease;
+}
+
+.peak-photo-pair img:hover {
+    transform: scale(1.025);
+}
+
+.peak-photo-pair.single {
+    grid-template-columns: 1fr;
+}
+
+.peak-photo-pair.single img {
+    height: auto;
+    max-height: 500px;
 }
 
 .photo-caption {
@@ -990,6 +1167,7 @@ img {
     color: #44256f;
     box-shadow: 0 12px 35px rgba(77,40,137,.07);
     transition: .35s;
+    width: 100%;
 }
 
 .gallery-card:hover {
@@ -1014,19 +1192,13 @@ img {
     border-radius: 12px;
 }
 
-.gallery-card h3 {
-    font-family: "Manrope",sans-serif;
-    font-size: 14px;
-    padding: 18px 19px 21px;
-}
-
 .gallery-actions {
     text-align: center;
     margin-top: 35px;
 }
 
 /* =====================================================
-   LIGHTBOX
+   FULLSCREEN LIGHTBOX
 ===================================================== */
 
 .lightbox {
@@ -1121,7 +1293,7 @@ img {
 }
 
 /* =====================================================
-   FOOTER — CREATED BY VAIBHAV BHATIA
+   FOOTER
 ===================================================== */
 
 footer {
@@ -1256,10 +1428,6 @@ footer {
     font-size: 12px;
 }
 
-.footer-bottom a {
-    color: #f0d5ff;
-}
-
 /* =====================================================
    SCROLL ANIMATIONS
 ===================================================== */
@@ -1289,6 +1457,16 @@ footer {
    RESPONSIVE
 ===================================================== */
 
+@media(max-width:1100px) {
+    .nav-links {
+        gap: 13px;
+    }
+
+    .nav-links a {
+        font-size: 11px;
+    }
+}
+
 @media(max-width:950px) {
     .nav-links {
         display: none;
@@ -1311,10 +1489,6 @@ footer {
 
     .menu-btn {
         display: block;
-    }
-
-    .hero-inner {
-        gap: 30px;
     }
 }
 
@@ -1356,14 +1530,6 @@ footer {
 
     .floating-card {
         padding: 10px 12px;
-    }
-
-    .floating-card strong {
-        font-size: 12px;
-    }
-
-    .floating-card span {
-        font-size: 10px;
     }
 
     .float-bottom {
@@ -1416,8 +1582,17 @@ footer {
         border-radius: 14px;
     }
 
-    .photo-display img {
+    .photo-display > img {
         max-height: none;
+    }
+
+    .peak-photo-pair {
+        grid-template-columns: 1fr;
+    }
+
+    .peak-photo-pair img {
+        height: auto;
+        max-height: 370px;
     }
 
     .gallery-section {
@@ -1432,11 +1607,6 @@ footer {
     .gallery-image {
         height: 165px;
         padding: 7px;
-    }
-
-    .gallery-card h3 {
-        font-size: 12px;
-        padding: 12px;
     }
 
     .lightbox {
@@ -1474,10 +1644,6 @@ footer {
         font-size: 54px;
     }
 
-    .hero-buttons {
-        gap: 9px;
-    }
-
     .btn {
         padding: 13px 17px;
         font-size: 12px;
@@ -1504,12 +1670,13 @@ footer {
 }
 
 </style>
+
 </head>
 
 <body>
 
 <!-- ==================================================
-     NAVBAR
+     NAVIGATION
 ================================================== -->
 
 <nav class="navbar">
@@ -1521,19 +1688,23 @@ footer {
     <div class="nav-links" id="navLinks">
         <a href="#home" data-en="Home" data-hi="होम">Home</a>
         <a href="#about" data-en="Discover" data-hi="जानें">Discover</a>
+        <a href="#bus" data-en="Bus" data-hi="बस सेवा">Bus</a>
+        <a href="#peak" data-en="Churdhar" data-hi="चूड़धार">Churdhar</a>
         <a href="#school" data-en="Education" data-hi="शिक्षा">Education</a>
         <a href="#temple" data-en="Temple" data-hi="मंदिर">Temple</a>
-        <a href="#resort" data-en="Resort" data-hi="रिसॉर्ट">Resort</a>
         <a href="#gallery" data-en="Gallery" data-hi="गैलरी">Gallery</a>
     </div>
 
     <div class="nav-actions">
-        <button class="lang-btn" id="langBtn"
-                type="button" onclick="toggleLanguage()">
+        <button class="lang-btn"
+                id="langBtn"
+                type="button"
+                onclick="toggleLanguage()">
             हिंदी
         </button>
 
-        <button class="menu-btn" type="button"
+        <button class="menu-btn"
+                type="button"
                 aria-label="Toggle menu"
                 aria-expanded="false"
                 onclick="toggleMenu()">☰</button>
@@ -1563,22 +1734,26 @@ footer {
                 A little paradise in the hills.
             </div>
 
-            <p data-en="Welcome to Pabiana, a beautiful village surrounded by the scenic hills of Himachal Pradesh. Explore its landscapes, schools, roads, temple, resort and local community."
-               data-hi="हिमाचल प्रदेश की सुंदर पहाड़ियों में बसे पबियाना गाँव में आपका स्वागत है। यहाँ के प्राकृतिक नज़ारों, विद्यालयों, सड़कों, मंदिर, रिसॉर्ट और ग्रामीण जीवन को जानें।">
+            <p
+                data-en="Welcome to Pabiana, a beautiful village surrounded by the scenic hills of Himachal Pradesh. Explore its mountains, schools, roads, temple, resort, bus connectivity and breathtaking views."
+                data-hi="हिमाचल प्रदेश की सुंदर पहाड़ियों में बसे पबियाना गाँव में आपका स्वागत है। यहाँ के प्राकृतिक नज़ारों, विद्यालयों, सड़कों, मंदिर और बस सुविधाओं को जानें।">
                 Welcome to Pabiana, a beautiful village
                 surrounded by the scenic hills of Himachal
-                Pradesh. Explore its landscapes, schools,
-                roads, temple, resort and local community.
+                Pradesh. Explore its mountains, schools,
+                roads, temple, resort, bus connectivity
+                and breathtaking views.
             </p>
 
             <div class="hero-buttons">
-                <a href="#about" class="btn btn-white"
+                <a href="#about"
+                   class="btn btn-white"
                    data-en="Explore Pabiana ↗"
                    data-hi="पबियाना देखें ↗">
                     Explore Pabiana ↗
                 </a>
 
-                <a href="#gallery" class="btn btn-glass"
+                <a href="#gallery"
+                   class="btn btn-glass"
                    data-en="View All Photos"
                    data-hi="सभी तस्वीरें देखें">
                     View All Photos
@@ -1590,14 +1765,20 @@ footer {
         <div class="hero-visual">
 
             <div class="hero-photo">
+
                 {% if hero %}
+
                 <img src="{{ hero }}"
                      alt="Beautiful Pabiana Village">
+
                 {% else %}
+
                 <div class="hero-placeholder">
                     Pabiana Village Photo
                 </div>
+
                 {% endif %}
+
             </div>
 
             <div class="floating-card float-top">
@@ -1614,7 +1795,8 @@ footer {
 
     </div>
 
-    <svg class="hero-wave" viewBox="0 0 1440 120"
+    <svg class="hero-wave"
+         viewBox="0 0 1440 120"
          preserveAspectRatio="none"
          aria-hidden="true">
         <path d="M0,60 C230,120 460,5 720,55 C970,110 1180,10 1440,65 L1440,120 L0,120 Z"></path>
@@ -1628,19 +1810,22 @@ footer {
 
 <section class="intro reveal">
 
-    <div class="kicker">WELCOME TO OUR WORLD</div>
+    <div class="kicker">
+        WELCOME TO OUR WORLD
+    </div>
 
     <h2>
         Discover the magic of
         <span class="gradient-text">Pabiana.</span>
     </h2>
 
-    <p data-en="A place of peaceful mountain scenery, beautiful village roads, education, spiritual heritage and community. Explore the places that make our village special."
-       data-hi="शांत पहाड़ी नज़ारों, सुंदर सड़कों, शिक्षा, आध्यात्मिक विरासत और ग्रामीण जीवन से जुड़ा हमारा पबियाना गाँव। आइए इसकी खास जगहों को जानें।">
+    <p
+        data-en="A place of peaceful mountain scenery, beautiful village roads, education, spiritual heritage and community. Explore the places that make our village special."
+        data-hi="शांत पहाड़ी नज़ारों, सुंदर सड़कों, शिक्षा, आध्यात्मिक विरासत और ग्रामीण जीवन से जुड़ा हमारा पबियाना गाँव। आइए इसकी खास जगहों को जानें।">
         A place of peaceful mountain scenery,
-        beautiful village roads, education, spiritual
-        heritage and community. Explore the places
-        that make our village special.
+        beautiful village roads, education,
+        spiritual heritage and community.
+        Explore the places that make our village special.
     </p>
 
 </section>
@@ -1681,15 +1866,16 @@ footer {
 </section>
 
 <!-- ==================================================
-     8 LEFT-RIGHT STORY SECTIONS
+     11 STORY SECTIONS - PROPER SEQUENCE
 ================================================== -->
 
 <main class="stories">
 
 {% for section in sections %}
 
-<section class="story {% if loop.index is even %}reverse{% endif %}"
-         id="{{ section.id }}">
+<section
+    class="story {% if loop.index is even %}reverse{% endif %}"
+    id="{{ section.id }}">
 
     <div class="story-photo reveal {% if loop.index is even %}from-right{% else %}from-left{% endif %}">
 
@@ -1699,11 +1885,39 @@ footer {
 
             <div class="photo-display">
 
-                {% if section.image_url %}
+                {% if section.id == "peak" %}
 
-                <img src="{{ section.image_url }}"
-                     alt="{{ section.title }}"
-                     loading="lazy">
+                    {% if section.peak_images %}
+
+                    <div class="peak-photo-pair {% if section.peak_images|length == 1 %}single{% endif %}">
+
+                        {% for peak_photo in section.peak_images %}
+
+                        <img
+                            src="{{ peak_photo }}"
+                            alt="Churdhar Peak View {{ loop.index }}"
+                            loading="lazy">
+
+                        {% endfor %}
+
+                    </div>
+
+                    {% else %}
+
+                    <div class="photo-placeholder">
+                        <div style="font-size:38px">✧</div>
+                        <strong>Churdhar Peak</strong>
+                        <small>Add peak1.png and peak2.png</small>
+                    </div>
+
+                    {% endif %}
+
+                {% elif section.image_url %}
+
+                <img
+                    src="{{ section.image_url }}"
+                    alt="{{ section.title }}"
+                    loading="lazy">
 
                 {% else %}
 
@@ -1719,7 +1933,7 @@ footer {
 
             <div class="photo-caption">
                 <span>{{ section.title }}</span>
-                <span>{{ section.number }} / 08</span>
+                <span>{{ section.number }} / {{ sections|length }}</span>
             </div>
 
         </div>
@@ -1736,19 +1950,22 @@ footer {
             ✦ {{ section.tag }}
         </div>
 
-        <h2 data-en="{{ section.title }}"
+        <h2
+            data-en="{{ section.title }}"
             data-hi="{{ section.hi_title }}">
             {{ section.title }}
         </h2>
 
         <div class="story-line"></div>
 
-        <p data-en="{{ section.description }}"
-           data-hi="{{ section.hi_description }}">
+        <p
+            data-en="{{ section.description }}"
+            data-hi="{{ section.hi_description }}">
             {{ section.description }}
         </p>
 
-        <a href="#gallery" class="story-link"
+        <a href="#gallery"
+           class="story-link"
            data-en="Explore our photo gallery ↗"
            data-hi="हमारी फोटो गैलरी देखें ↗">
             Explore our photo gallery ↗
@@ -1770,18 +1987,22 @@ footer {
 
     <div class="gallery-heading reveal">
 
-        <div class="kicker">THE PABIANA COLLECTION</div>
+        <div class="kicker">
+            THE PABIANA COLLECTION
+        </div>
 
         <h2>
             Our village,
             <span class="gradient-text">in pictures.</span>
         </h2>
 
-        <p data-en="Explore photographs of Pabiana Village, mountains, local schools, roads, temples, resort scenery and our community."
-           data-hi="पबियाना गाँव, पहाड़ों, विद्यालयों, सड़कों, मंदिर, रिसॉर्ट और हमारी स्थानीय जगहों की तस्वीरें देखें।">
+        <p
+            data-en="Explore photographs of Pabiana Village, mountains, local schools, roads, temples, resort scenery, bus connectivity, network tower and Churdhar Peak."
+            data-hi="पबियाना गाँव, पहाड़ों, विद्यालयों, सड़कों, मंदिर, रिसॉर्ट, बस सेवा, नेटवर्क टावर और चूड़धार चोटी की तस्वीरें देखें।">
             Explore photographs of Pabiana Village,
             mountains, local schools, roads, temples,
-            resort scenery and our community.
+            resort scenery, bus connectivity,
+            network tower and Churdhar Peak.
         </p>
 
     </div>
@@ -1790,17 +2011,18 @@ footer {
 
         {% for photo in photos %}
 
-        <button class="gallery-card reveal"
-                type="button"
-                onclick="openLightbox({{ loop.index0 }})">
+        <button
+            class="gallery-card reveal"
+            type="button"
+            aria-label="View {{ photo.title }}"
+            onclick="openLightbox({{ loop.index0 }})">
 
             <div class="gallery-image">
-                <img src="{{ photo.src }}"
-                     alt="{{ photo.title }}"
-                     loading="lazy">
+                <img
+                    src="{{ photo.src }}"
+                    alt="{{ photo.title }}"
+                    loading="lazy">
             </div>
-
-            <h3>{{ photo.title }}</h3>
 
         </button>
 
@@ -1815,7 +2037,8 @@ footer {
     {% endif %}
 
     <div class="gallery-actions">
-        <a href="#home" class="btn btn-purple"
+        <a href="#home"
+           class="btn btn-purple"
            data-en="Back to Top ↑"
            data-hi="ऊपर जाएँ ↑">
             Back to Top ↑
@@ -1830,21 +2053,25 @@ footer {
 
 <section class="closing">
 
-    <div class="kicker">OUR HOME · OUR IDENTITY</div>
+    <div class="kicker">
+        OUR HOME · OUR IDENTITY
+    </div>
 
     <h2>
-        A beautiful place.<br>
+        A beautiful place.
         <span class="gradient-text">Forever Pabiana.</span>
     </h2>
 
-    <p data-en="A village surrounded by natural beauty and a strong sense of belonging. Discover Pabiana in Sirmaur, Himachal Pradesh."
-       data-hi="प्राकृतिक सुंदरता और अपनेपन से भरा हमारा गाँव पबियाना। सिरमौर, हिमाचल प्रदेश में आपका स्वागत है।">
+    <p
+        data-en="A village surrounded by natural beauty and a strong sense of belonging. Discover Pabiana in Sirmaur, Himachal Pradesh."
+        data-hi="प्राकृतिक सुंदरता और अपनेपन से भरा हमारा गाँव पबियाना। सिरमौर, हिमाचल प्रदेश में आपका स्वागत है।">
         A village surrounded by natural beauty
         and a strong sense of belonging.
         Discover Pabiana in Sirmaur, Himachal Pradesh.
     </p>
 
-    <a href="#gallery" class="btn btn-purple"
+    <a href="#gallery"
+       class="btn btn-purple"
        data-en="Explore Gallery ↗"
        data-hi="गैलरी देखें ↗">
         Explore Gallery ↗
@@ -1853,7 +2080,7 @@ footer {
 </section>
 
 <!-- ==================================================
-     FOOTER — CREATED BY VAIBHAV BHATIA
+     FOOTER
 ================================================== -->
 
 <footer>
@@ -1861,15 +2088,17 @@ footer {
     <div class="footer-main">
 
         <div>
+
             <div class="footer-brand">
                 PABIANA<span>.</span>
             </div>
 
             <p class="footer-description">
-                A beautiful village in Sirmaur,<br>
-                Himachal Pradesh, India.<br>
+                A beautiful village in Sirmaur,
+                Himachal Pradesh, India.
                 Gram Panchayat Ser Jagas · Rajgarh
             </p>
+
         </div>
 
         <div class="creator-card">
@@ -1877,11 +2106,16 @@ footer {
             <div class="creator-avatar">
 
                 {% if creator %}
-                <img src="{{ creator }}"
-                     alt="Vaibhav Bhatia profile picture"
-                     loading="lazy">
+
+                <img
+                    src="{{ creator }}"
+                    alt="Vaibhav Bhatia profile picture"
+                    loading="lazy">
+
                 {% else %}
+
                 <div class="creator-fallback">VB</div>
+
                 {% endif %}
 
             </div>
@@ -1897,8 +2131,16 @@ footer {
     </div>
 
     <div class="footer-bottom">
-        <span>© {{ year }} Pabiana Village. All Rights Reserved.</span>
-        <span>Made with ♡ for Pabiana, Himachal Pradesh.</span>
+
+        <span>
+            © {{ year }} Pabiana Village.
+            All Rights Reserved.
+        </span>
+
+        <span>
+            Made with ♡ for Pabiana, Himachal Pradesh.
+        </span>
+
     </div>
 
 </footer>
@@ -1907,50 +2149,58 @@ footer {
      FULLSCREEN GALLERY
 ================================================== -->
 
-<div class="lightbox" id="lightbox"
-     role="dialog"
-     aria-modal="true"
-     aria-label="Photo gallery"
-     aria-hidden="true">
+<div
+    class="lightbox"
+    id="lightbox"
+    role="dialog"
+    aria-modal="true"
+    aria-label="Photo gallery"
+    aria-hidden="true">
 
-    <button class="lightbox-control lightbox-close"
-            type="button"
-            aria-label="Close gallery"
-            onclick="closeLightbox()">×</button>
+    <button
+        class="lightbox-control lightbox-close"
+        type="button"
+        aria-label="Close gallery"
+        onclick="closeLightbox()">×</button>
 
-    <button class="lightbox-control lightbox-prev"
-            type="button"
-            aria-label="Previous photo"
-            onclick="changePhoto(-1)">‹</button>
+    <button
+        class="lightbox-control lightbox-prev"
+        type="button"
+        aria-label="Previous photo"
+        onclick="changePhoto(-1)">‹</button>
 
     <img id="lightboxImage" alt="Pabiana photograph">
 
     <div class="lightbox-title" id="lightboxTitle"></div>
+
     <div class="lightbox-count" id="lightboxCount"></div>
 
-    <button class="lightbox-control lightbox-next"
-            type="button"
-            aria-label="Next photo"
-            onclick="changePhoto(1)">›</button>
+    <button
+        class="lightbox-control lightbox-next"
+        type="button"
+        aria-label="Next photo"
+        onclick="changePhoto(1)">›</button>
 
 </div>
 
+<!-- ==================================================
+     JAVASCRIPT
+================================================== -->
+
 <script>
 
-// ==================================================
-// GALLERY DATA
-// ==================================================
-
 const photos = {{ photos | tojson }};
+
 let currentPhoto = 0;
 let currentLanguage = "en";
 let previousFocus = null;
 
 // ==================================================
-// LANGUAGE
+// LANGUAGE TOGGLE
 // ==================================================
 
 function toggleLanguage() {
+
     currentLanguage =
         currentLanguage === "en" ? "hi" : "en";
 
@@ -1958,8 +2208,10 @@ function toggleLanguage() {
 
     document.querySelectorAll("[data-en][data-hi]")
         .forEach(element => {
+
             element.textContent =
                 element.dataset[currentLanguage];
+
         });
 
     document.getElementById("langBtn").textContent =
@@ -1971,6 +2223,7 @@ function toggleLanguage() {
             currentLanguage
         );
     } catch(error) {}
+
 }
 
 try {
@@ -1984,6 +2237,7 @@ try {
 // ==================================================
 
 function toggleMenu() {
+
     const nav = document.getElementById("navLinks");
     const button = document.querySelector(".menu-btn");
 
@@ -1993,17 +2247,22 @@ function toggleMenu() {
         "aria-expanded",
         nav.classList.contains("open") ? "true" : "false"
     );
+
 }
 
 document.querySelectorAll(".nav-links a")
     .forEach(link => {
+
         link.addEventListener("click", () => {
+
             document.getElementById("navLinks")
                 .classList.remove("open");
 
             document.querySelector(".menu-btn")
                 .setAttribute("aria-expanded", "false");
+
         });
+
     });
 
 // ==================================================
@@ -2011,29 +2270,40 @@ document.querySelectorAll(".nav-links a")
 // ==================================================
 
 if ("IntersectionObserver" in window) {
+
     const observer = new IntersectionObserver(entries => {
+
         entries.forEach(entry => {
+
             if (entry.isIntersecting) {
+
                 entry.target.classList.add("visible");
                 observer.unobserve(entry.target);
+
             }
+
         });
+
     }, {
         threshold: 0.08
     });
 
     document.querySelectorAll(".reveal")
         .forEach(element => observer.observe(element));
+
 } else {
+
     document.querySelectorAll(".reveal")
         .forEach(element => element.classList.add("visible"));
+
 }
 
 // ==================================================
-// FULLSCREEN GALLERY
+// LIGHTBOX
 // ==================================================
 
 function openLightbox(index) {
+
     if (!photos.length) return;
 
     previousFocus = document.activeElement;
@@ -2047,24 +2317,33 @@ function openLightbox(index) {
     document.body.classList.add("modal-open");
 
     showPhoto();
+
     document.querySelector(".lightbox-close").focus();
+
 }
 
 function showPhoto() {
+
     if (!photos.length) return;
 
     const photo = photos[currentPhoto];
 
-    document.getElementById("lightboxImage").src = photo.src;
-    document.getElementById("lightboxImage").alt = photo.title;
+    document.getElementById("lightboxImage").src =
+        photo.src;
+
+    document.getElementById("lightboxImage").alt =
+        photo.title;
+
     document.getElementById("lightboxTitle").textContent =
         photo.title;
 
     document.getElementById("lightboxCount").textContent =
         (currentPhoto + 1) + " / " + photos.length;
+
 }
 
 function changePhoto(direction) {
+
     if (!photos.length) return;
 
     currentPhoto =
@@ -2072,9 +2351,11 @@ function changePhoto(direction) {
         % photos.length;
 
     showPhoto();
+
 }
 
 function closeLightbox() {
+
     const modal = document.getElementById("lightbox");
 
     modal.classList.remove("active");
@@ -2082,26 +2363,41 @@ function closeLightbox() {
 
     document.body.classList.remove("modal-open");
 
-    if (previousFocus) previousFocus.focus();
+    if (previousFocus) {
+        previousFocus.focus();
+    }
+
 }
 
 document.getElementById("lightbox")
     .addEventListener("click", event => {
+
         if (event.target.id === "lightbox") {
             closeLightbox();
         }
+
     });
 
 document.addEventListener("keydown", event => {
+
     const modal = document.getElementById("lightbox");
 
     if (!modal.classList.contains("active")) return;
 
-    if (event.key === "Escape") closeLightbox();
-    if (event.key === "ArrowRight") changePhoto(1);
-    if (event.key === "ArrowLeft") changePhoto(-1);
+    if (event.key === "Escape") {
+        closeLightbox();
+    }
+
+    if (event.key === "ArrowRight") {
+        changePhoto(1);
+    }
+
+    if (event.key === "ArrowLeft") {
+        changePhoto(-1);
+    }
 
     if (event.key === "Tab") {
+
         const controls = Array.from(
             modal.querySelectorAll("button")
         );
@@ -2109,7 +2405,10 @@ document.addEventListener("keydown", event => {
         const first = controls[0];
         const last = controls[controls.length - 1];
 
-        if (event.shiftKey && document.activeElement === first) {
+        if (
+            event.shiftKey &&
+            document.activeElement === first
+        ) {
             event.preventDefault();
             last.focus();
         } else if (
@@ -2119,7 +2418,9 @@ document.addEventListener("keydown", event => {
             event.preventDefault();
             first.focus();
         }
+
     }
+
 });
 
 </script>
@@ -2130,16 +2431,31 @@ document.addEventListener("keydown", event => {
 
 
 # ============================================================
-# ROUTES
+# FLASK ROUTES
 # ============================================================
 
 @app.route("/")
 def home():
+
     prepared_sections = []
 
     for item in SECTIONS:
+
         section = dict(item)
+
         section["image_url"] = get_photo(section["photo"])
+
+        if section["id"] == "peak":
+
+            section["peak_images"] = [
+                photo
+                for photo in (
+                    get_photo("peak1"),
+                    get_photo("peak2")
+                )
+                if photo
+            ]
+
         prepared_sections.append(section)
 
     return render_template_string(
@@ -2159,6 +2475,7 @@ def gallery():
 
 @app.route("/api/photos")
 def photos_api():
+
     return jsonify({
         "village": "Pabiana",
         "photos": get_gallery()
@@ -2167,6 +2484,7 @@ def photos_api():
 
 @app.route("/health")
 def health():
+
     return jsonify({
         "status": "ok",
         "website": "Pabiana Village",
@@ -2175,19 +2493,28 @@ def health():
     })
 
 
+# ============================================================
+# GOOGLE SEARCH CONSOLE
+# ============================================================
+
 @app.route("/robots.txt")
 def robots():
-    sitemap_url = request.url_root.rstrip("/") + "/sitemap.xml"
+
+    sitemap_url = (
+        request.url_root.rstrip("/") + "/sitemap.xml"
+    )
 
     return Response(
-        "User-agent: *\nAllow: /\nSitemap: "
-        + sitemap_url + "\n",
+        "User-agent: *\n"
+        "Allow: /\n"
+        "Sitemap: " + sitemap_url + "\n",
         mimetype="text/plain"
     )
 
 
 @app.route("/sitemap.xml")
 def sitemap():
+
     home_url = request.url_root
 
     xml = (
@@ -2199,7 +2526,10 @@ def sitemap():
         '</urlset>'
     )
 
-    return Response(xml, mimetype="application/xml")
+    return Response(
+        xml,
+        mimetype="application/xml"
+    )
 
 
 # ============================================================
@@ -2207,6 +2537,7 @@ def sitemap():
 # ============================================================
 
 if __name__ == "__main__":
+
     port = int(os.environ.get("PORT", 5000))
 
     app.run(
